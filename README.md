@@ -1,49 +1,31 @@
-# Capacity Constrained IM
+# Influence Allocation
 
-Environment: Windows/Linux with `c++17`, `cmake` and `OpenMP`.
+## Main Idea
 
-## Compile and Run
+Given a set of nodes and a diffusion model, we want to allocate each node's contribution to the propagation fairly.
 
-#### Compile [using Linux bash]
+## Motivation
 
-```bash
-cd exp
-mkdir build && cd build
-cmake ..
-make
-```
+Application: 
+* Help advertisers pay influencers a fair price
+* Rank seeds in IM / CIM
+* Used as a feature for downstream prediction tasks (e.g., user retention, behavior conversion), maybe supported by Tencent.
 
-#### Run
+Flaws of existing solutions:
+* Most scoring methods (e.g., degree, pagerank, Chen's Shapley centrality) can't reflect fair contributions, leading to underpayments or overpayments.
+* Jing Tang's "influence contribution" is based on the propagation result, which can lead to another issue: the real influential node may never have been selected in the previous propagation event, causing inaccurate prediction. 
 
-```bash
-./exp [dataset_name] k eps greedy_option
-```
+## Our Method
 
-**dataset_name**: Name of the graph file in `/data/`;
+In the triggering model, for each live/block edge graph instance, we allocate seeds based on the number of nodes they first influence.
 
-**k**: Set the constant $k$.
+The overall allocation to a seed is its expected value across all live/block edge graph instances.
 
-**eps**: Set the parameter $\epsilon$ of solutions extending *OPIM-C*.
+We can prove that the sum of allocations for individual seeds equals the influence spread, while experiments show that other methods (degree, pagerank, centrality, single-node spread) result in significant bias.
 
-**greedy_option**: Specify the type of MC simulation-based solutions to execute. Possible values:
+## Remaining Issues
 
-+ **0**: Do not execute these solutions.
-+ **1** (default): Execute these solutions with CELF trick.
-+ **2**: Execute these solutions with vanilla version.
+* How can we demonstrate the fairness of our method compared to marginal spread? (Note that the sum of marginal spread also equals the overall spread).
+* When multiple seeds have the same shortest distance to a node, how should we distribute the allocation for that node to each seed?
 
-#### Example
-
-```bash
-dnc-corecipient 10 0.05 1
-```
-
-Run the experiments on *DNC* dataset, with $k=10,\epsilon=0.05$, with the CELF greedy solutions.
-
-## More Experiments
-
-**exp_batch.cpp**: (default) Main experiment.
-
-**exp_query_set.cpp**: Randomly generate one query set.
-
-**exp_gamma.cpp**: Calculate the curvature for a graph and a query set.
-
+## Future Work
