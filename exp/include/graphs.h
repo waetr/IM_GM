@@ -113,7 +113,7 @@ public:
                     gT[i][j].p = p0;
                 }
             }
-        } else{
+        } else {
             for (int64 i = 0; i < n; i++) {
                 for (int64 j = 0; j < g[i].size(); j++) {
                     g[i][j].p = 1.0 / deg_in[g[i][j].v];
@@ -155,11 +155,11 @@ public:
         num_neighbours = new int64[graph.n]();
         f = new std::vector<int64>[graph.n]();
         std::set<int64> N_unique, A_unique;
-        for (auto u : A) A_unique.insert(u);
+        for (auto u: A) A_unique.insert(u);
 
         //push all candidate neighbour to S, and update f
-        for (auto u : A) {
-            for (auto &edge : graph.g[u]) {
+        for (auto u: A) {
+            for (auto &edge: graph.g[u]) {
                 if (A_unique.find(edge.v) == A_unique.end()) {
                     N_unique.insert(edge.v);
                     f[edge.v].emplace_back(u);
@@ -168,7 +168,7 @@ public:
         }
         N.assign(N_unique.begin(), N_unique.end());
         //Disrupt the f-vector to achieve random assignment
-        for (auto u : N)
+        for (auto u: N)
             std::shuffle(f[u].begin(), f[u].end(), std::mt19937(std::random_device()()));
     }
 
@@ -256,7 +256,7 @@ public:
 
     explicit RRContainer(Graph &G, std::vector<int64> &A, bool isRRSet) {
         excludedNodes.resize(G.n, false);
-        for (auto u : A) excludedNodes[u] = true;
+        for (auto u: A) excludedNodes[u] = true;
         RIFlag = isRRSet;
         dist = new int64[G.n]();
         DijkstraVis = new bool[G.n]();
@@ -298,7 +298,7 @@ public:
         auto *edge_list = RIFlag ? &graph.gT : &graph.g;
         if (graph.diff_model == IC) {
             std::deque<int64> Q;
-            for (int64 u : uStart)
+            for (int64 u: uStart)
                 if (!excludedNodes[u]) {
                     DijkstraVis[u] = true;
                     Q.push_back(u);
@@ -307,7 +307,7 @@ public:
                 int64 u = Q.front();
                 Q.pop_front();
                 RR.emplace_back(u);
-                for (auto &edgeT : (*edge_list)[u]) {
+                for (auto &edgeT: (*edge_list)[u]) {
                     if (excludedNodes[edgeT.v] || DijkstraVis[edgeT.v]) continue;
                     bool activate_success = (random_real() < edgeT.p);
                     if (activate_success) {
@@ -318,7 +318,7 @@ public:
             }
         }
 
-        for (int64 u : RR) {
+        for (int64 u: RR) {
             DijkstraVis[u] = false;
         }
     }
@@ -328,17 +328,18 @@ public:
      * @brief Insert a random RR set into the container.
      * @param G
      */
-    void insertOneRandomRRset(Graph &G, std::uniform_int_distribution<int64> &uniformIntDistribution) {
+    int64 insertOneRandomRRset(Graph &G, std::uniform_int_distribution<int64> &uniformIntDistribution) {
         std::vector<int64> RR;
         int64 v = uniformIntDistribution(mt19937engine);
         std::vector<int64> vStart = {v};
         RI_Gen(G, vStart, RR);
         R.emplace_back(RR);
         _sizeOfRRsets += RR.size();
-        for (int64 u : RR) {
+        for (int64 u: RR) {
             covered[u].emplace_back(R.size() - 1);
             coveredNum[u]++;
         }
+        return v;
     }
 
 
@@ -353,6 +354,15 @@ public:
         while (R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
     }
 
+    void resize(Graph &G, size_t size, std::vector<double> &weights, std::vector<double> &RR_weights) {
+        assert(R.size() <= size);
+        std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
+        while (R.size() < size) {
+            auto v = insertOneRandomRRset(G, uniformIntDistribution);
+            RR_weights.push_back(weights[v]);
+        }
+    }
+
     /*!
      * @brief calculate the coverage of vertex set S on these RR sets
      * @param G : the graph
@@ -361,8 +371,8 @@ public:
      */
     int64 self_inf_cal(Graph &G, std::vector<int64> &vecSeed) const {
         std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
-        for (auto seed : vecSeed) {
-            for (auto node : covered[seed]) {
+        for (auto seed: vecSeed) {
+            for (auto node: covered[seed]) {
                 vecBoolVst[node] = true;
             }
         }
@@ -377,8 +387,8 @@ public:
  */
     int64 self_inf_cal(Graph &G, std::vector<bi_node> &vecSeed) const {
         std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
-        for (auto seed : vecSeed) {
-            for (auto node : covered[seed.first]) {
+        for (auto seed: vecSeed) {
+            for (auto node: covered[seed.first]) {
                 vecBoolVst[node] = true;
             }
         }
