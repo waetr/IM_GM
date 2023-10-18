@@ -12,11 +12,29 @@
  */
 void generate_ap(Graph &graph, std::vector<int64> &A, int64 size = 1) {
     A.clear();
+    std::set<int64> S;
     std::uniform_int_distribution<int64> uniformIntDistribution(0, graph.n - 1);
     for (int64 i = 0; i < size; i++) {
         int64 v = uniformIntDistribution(mt19937engine);
-        while (std::find(A.begin(), A.end(), v) != A.end()) v = uniformIntDistribution(mt19937engine);
+        while (1) {
+            bool flag = false;
+            if(S.find(v) != S.end()) flag = true;
+            else {
+                for (auto &edge: graph.g[v]) {
+                    if(S.find(edge.v) != S.end()) {
+                        flag = true;
+                        break;
+                    }
+                }
+            }
+            if(!flag) break;
+            v = uniformIntDistribution(mt19937engine);
+        }
         A.emplace_back(v);
+        S.insert(v);
+        for (auto &edge: graph.g[v]) {
+            S.insert(edge.v);
+        }
     }
 }
 
