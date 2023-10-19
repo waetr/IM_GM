@@ -21,7 +21,7 @@ RR_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
     ///initialization
     std::set<int64> A_reorder(A.begin(), A.end());
     for (int i = 0; i < A.size(); i++) {
-        for (auto e : graph.g[A[i]])
+        for (auto e: graph.g[A[i]])
             if (A_reorder.find(e.v) == A_reorder.end()) {
                 nodeRemain[e.v] = true;
             }
@@ -39,7 +39,7 @@ RR_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
             std::vector<int64> tight_list;
             for (int i = 0; i < A.size(); i++) {
                 tight_list.clear();
-                for (auto e : graph.g[A[i]])
+                for (auto e: graph.g[A[i]])
                     if (coveredNum_tmp[e.v] > 0) tight_list.emplace_back(coveredNum_tmp[e.v]);
                 int64 k_max = std::min((int64) tight_list.size(), k);
                 std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
@@ -58,7 +58,7 @@ RR_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
             if (Ni_empty[i] == k + 1) continue;
 
             int64 v = -1;
-            for (auto e : graph.g[A[i]])
+            for (auto e: graph.g[A[i]])
                 if (nodeRemain[e.v] && (v == -1 || coveredNum_tmp[e.v] > coveredNum_tmp[v])) v = e.v;
 
             if (Ni_empty[i] != k + 1 && v == -1) {
@@ -71,9 +71,9 @@ RR_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
             bi_seeds.emplace_back(v, A[i]);
             current_influence += coveredNum_tmp[v];
             nodeRemain[v] = false;
-            for (int64 RIIndex : RRI.covered[v]) {
+            for (int64 RIIndex: RRI.covered[v]) {
                 if (RISetCovered[RIIndex]) continue;
-                for (int64 u : RRI.R[RIIndex]) {
+                for (int64 u: RRI.R[RIIndex]) {
                     coveredNum_tmp[u]--;
                 }
                 RISetCovered[RIIndex] = true;
@@ -81,7 +81,7 @@ RR_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
         }
     }
     for (int i = 0; i < A.size(); i++) {
-        for (auto e : graph.g[A[i]])
+        for (auto e: graph.g[A[i]])
             nodeRemain[e.v] = false;
     }
     return is_tightened ? xx : current_influence;
@@ -95,10 +95,10 @@ MG_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
     ///temporary varible
     CandidateNeigh candidate(graph, A, k);
     std::vector<bool> RISetCovered(RRI.R.size(), false);
-    for (int64 i : candidate.N) nodeRemain[i] = true;
+    for (int64 i: candidate.N) nodeRemain[i] = true;
     memcpy(coveredNum_tmp, RRI.coveredNum, graph.n * sizeof(int64));
     std::priority_queue<std::pair<int64, int64>> Q;
-    for (int64 i : candidate.N) Q.push(std::make_pair(coveredNum_tmp[i], i));
+    for (int64 i: candidate.N) Q.push(std::make_pair(coveredNum_tmp[i], i));
 
     int64 xx = INT64_MAX;
 
@@ -121,7 +121,7 @@ MG_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
         if (is_tightened) {
             int64 tight_mg = 0;
             std::vector<int64> tight_list;
-            for (auto item : candidate.N) {
+            for (auto item: candidate.N) {
                 if (coveredNum_tmp[item] > 0)
                     tight_list.emplace_back(coveredNum_tmp[item]);
             }
@@ -138,15 +138,15 @@ MG_OPIM_Selection(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_n
         current_influence += coveredNum_tmp[maxInd];
         candidate.choose(u0);
         nodeRemain[maxInd] = false;
-        for (int64 RIIndex : RRI.covered[maxInd]) {
+        for (int64 RIIndex: RRI.covered[maxInd]) {
             if (RISetCovered[RIIndex]) continue;
-            for (int64 u : RRI.R[RIIndex]) {
+            for (int64 u: RRI.R[RIIndex]) {
                 coveredNum_tmp[u]--;
             }
             RISetCovered[RIIndex] = true;
         }
     }
-    for (int64 i : candidate.N) nodeRemain[i] = false;
+    for (int64 i: candidate.N) nodeRemain[i] = false;
     return is_tightened ? xx : current_influence;
 }
 
@@ -174,7 +174,7 @@ method_FOPIM(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node> 
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;
     double sum_log = 0;
-    for (auto ap:A) sum_log += logcnk(graph.deg_out[ap], k);
+    for (auto ap: A) sum_log += logcnk(graph.deg_out[ap], k);
     double C_max = 2.0 * graph.n * sqr(
             approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps /
                    opt_lower_bound;
@@ -233,7 +233,7 @@ double method_local_OPIM(Graph &graph, int64 k, std::vector<int64> &A, double ep
     auto start_time = std::chrono::high_resolution_clock::now();
     double delta = 1.0 / graph.n, approx = 1.0 - 1.0 / exp(1);
     std::set<int64> seeds_unique;
-    for (auto ap : A) {
+    for (auto ap: A) {
         std::vector<int64> ap_vec = {ap};
         std::vector<bi_node> bi_seeds;
         double C_0 = 2.0 * sqr(
@@ -255,7 +255,7 @@ double method_local_OPIM(Graph &graph, int64 k, std::vector<int64> &A, double ep
             R1.resize(graph, R1.R.size() * 2ll);
             R2.resize(graph, R2.R.size() * 2ll);
         }
-        for (auto u : bi_seeds) {
+        for (auto u: bi_seeds) {
             if (std::find(A.begin(), A.end(), u.first) == A.end() &&
                 seeds_unique.find(u.first) == seeds_unique.end()) {
                 seeds_unique.insert(u.first);
@@ -283,10 +283,10 @@ double method_local_OPIM(Graph &graph, int64 k, std::vector<int64> &A, double ep
 double IMMNodeSelection(Graph &graph, std::vector<int64> &candidate, int64 k, std::vector<int64> &S, RRContainer &RRI) {
     S.clear();
     std::vector<bool> RISetCovered(RRI.R.size(), false);
-    for (int64 i : candidate) nodeRemain[i] = true;
+    for (int64 i: candidate) nodeRemain[i] = true;
     memcpy(coveredNum_tmp, RRI.coveredNum, graph.n * sizeof(int64));
     std::priority_queue<std::pair<int64, int64>> Q;
-    for (int64 i : candidate) Q.push(std::make_pair(coveredNum_tmp[i], i));
+    for (int64 i: candidate) Q.push(std::make_pair(coveredNum_tmp[i], i));
     int64 influence = 0;
 
     while (S.size() < k && !Q.empty()) {
@@ -300,15 +300,15 @@ double IMMNodeSelection(Graph &graph, std::vector<int64> &candidate, int64 k, st
         influence += coveredNum_tmp[maxInd];
         S.emplace_back(maxInd);
         nodeRemain[maxInd] = false;
-        for (int64 RIIndex : RRI.covered[maxInd]) {
+        for (int64 RIIndex: RRI.covered[maxInd]) {
             if (RISetCovered[RIIndex]) continue;
-            for (int64 u : RRI.R[RIIndex]) {
+            for (int64 u: RRI.R[RIIndex]) {
                 if (nodeRemain[u]) coveredNum_tmp[u]--;
             }
             RISetCovered[RIIndex] = true;
         }
     }
-    for (int64 i : candidate) nodeRemain[i] = false;
+    for (int64 i: candidate) nodeRemain[i] = false;
     return (double) influence / RRI.R.size();
 }
 
@@ -334,7 +334,7 @@ void IMMSampling(Graph &graph, std::vector<int64> &candidate, int64 k, double ep
         RRI.resize(graph, ci);
 
         double ept = IMMNodeSelection(graph, candidate, k, S_tmp, RRI);
-        if (ept > 1.0 / pow(2.0, i)) {
+        if (ept > (1.0 + epsilon_prime) / pow(2.0, i)) {
             LB = ept * graph.n / (1.0 + epsilon_prime);
             break;
         }
@@ -376,16 +376,16 @@ double method_local_IMM(Graph &graph, int64 k, std::vector<int64> &A, double eps
     nodeRemain = new bool[graph.n];
     auto start_time = std::chrono::high_resolution_clock::now();
     std::set<int64> seeds_reorder;
-    for (int64 u : A) {
+    for (int64 u: A) {
         std::vector<int64> neighbours, one_seed;
-        for (auto &edge : graph.g[u]) {
+        for (auto &edge: graph.g[u]) {
             if (std::find(A.begin(), A.end(), edge.v) == A.end())
                 neighbours.emplace_back(edge.v);
         }
         std::vector<int64> ap = {u};
         RRContainer RRI(graph, A, true);
         IMM_full(graph, neighbours, k, eps, 1, one_seed, RRI);
-        for (int64 w : one_seed) {
+        for (int64 w: one_seed) {
             assert(std::find(A.begin(), A.end(), w) == A.end());
             if (seeds_reorder.find(w) == seeds_reorder.end()) {
                 seeds_reorder.insert(w);

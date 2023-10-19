@@ -39,7 +39,7 @@ int main(int argc, char const *argv[]) {
     auto eps = args_eps;
 
     vector<int64> A;
-    generate_ap(G, A, 50);
+    generate_ap(G, A, 500);
     cout << "overlap:" << estimate_neighbor_overlap(G, A) << endl;
 //    RRContainer R(G, A, true);
 //    R.resize(G, 100000);

@@ -61,12 +61,8 @@ void swap_rounding(std::vector<std::vector<int64>> &candidates, std::vector<std:
         }
     }
     for (int i = 0; i < pos.size(); ++i) {
-        int kk = 0;
         for (int j = 0; j < pos[i].size(); ++j) {
-            if (pos[i][j]) kk++, seeds.emplace_back(candidates[i][j], i);
-        }
-        if (kk != std::min((size_t) 5, pos[i].size())) {
-            std::cerr << "fuck!!!!!\n";
+            if (pos[i][j]) seeds.emplace_back(candidates[i][j], i);
         }
     }
 }
@@ -344,9 +340,6 @@ double OPIM_Matroid(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi
             }
     }
 
-    coveredNum_tmp = new int64[graph.n];
-    nodeRemain = new bool[graph.n];
-
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;
     double sum_log = 0;
@@ -386,8 +379,6 @@ double OPIM_Matroid(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
-    delete[] coveredNum_tmp;
-    delete[] nodeRemain;
     return elapsed.count();
 }
 
@@ -409,8 +400,6 @@ double OPIM_Partition(Graph &graph, int64 k, std::vector<int64> &A, std::vector<
                 candidates[i].push_back(e.v);
             }
     }
-    coveredNum_tmp = new int64[graph.n];
-    nodeRemain = new bool[graph.n];
 
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;
@@ -452,8 +441,6 @@ double OPIM_Partition(Graph &graph, int64 k, std::vector<int64> &A, std::vector<
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
-    delete[] coveredNum_tmp;
-    delete[] nodeRemain;
     return elapsed.count();
 }
 

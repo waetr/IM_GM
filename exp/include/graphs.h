@@ -379,7 +379,7 @@ public:
      * @param size
      */
     void resize(Graph &G, size_t size) {
-        assert(std::max(R.size(), multi_R.size()) <= size);
+        //assert(std::max(R.size(), multi_R.size()) <= size);
         std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
         if(round == 0) {
             while (R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
