@@ -26,41 +26,34 @@ int main(int argc, char const *argv[]) {
     auto k = args_k;
     auto eps = args_eps;
 
-    int64 T = 5;
-
+    int64 T = 1;
+//
 //    RRContainer R(G, T);
-//    R.resize(G, 5000);
+//    R.resize(G, 2000);
 //
 //    cout << "RR set generated!\n";
 //
 //    cur = clock();
 //    Cross_Round_Node_Selection(G, R, T, k, seeds);
 //
-//    cout << "naive greedy:" << 1.0 * R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() << "|"
+//    cout << "naive greedy:" << R.self_inf_cal_multi(seeds) << "|"
 //         << effic_inf_multi(G, seeds, T);
-//    cout << " time:" << clock() - cur << endl;
+//    cout << " time:" << clock() - cur << endl << endl;
 //
-//    for (int t = 1; t <= 5; ++t) {
-//        seeds.clear();
-//        cout << "cgreedy-naive:" << M_CGreedy(G, R, T, k, t, seeds, 1.0 / G.n);
-//        cout << " time:" << clock() - cur;
-//        cout << " value:" << 1.0 * R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() << "|"
-//             << effic_inf_multi(G, seeds, T) << " t:" << t << endl;
-//    }
 //
 //    for (int t = 1; t <= 5; ++t) {
 //        seeds.clear();
 //        cout << "cgreedy:" << M_CGreedy_Partition(G, R, T, k, t, seeds);
 //        cout << " time:" << clock() - cur;
-//        cout << " value:" << 1.0 * R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() << "|"
+//        cout << " value:" << 1.0 * R.self_inf_cal_multi(seeds) << "|"
 //             << effic_inf_multi(G, seeds, T) << " t:" << t << endl;
 //    }
 
-    printf("CR-IMM:\n\ttime = %.3f\n", CR_NAIMM(G,T,k,0.2,seeds));
+    printf("CR-IMM:\n\ttime = %.3f\n", CR_NAIMM(G,T,k,0.4,seeds));
     printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf_multi(G, seeds, T));
     seeds.clear();
 
-    printf("OPIM-Partition:\n\ttime = %.3f\n", CR_OPIM_Partition(G,T,k,0.2,seeds));
+    printf("OPIM-Partition:\n\ttime = %.3f\n", CR_OPIM_Partition(G,T,k,0.1,seeds));
     printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf_multi(G, seeds, T));
     seeds.clear();
 

@@ -44,6 +44,7 @@ void Cross_Round_Node_Selection(Graph &G, RRContainer &RRI, int64 T, int64 k, st
     delete[] coveredNum_tmp;
 }
 
+
 double M_calc_bound(Graph &G, int64 T, int64 k, RRContainer &RRI, std::vector<double> &q_R) {
     double sum = 0;
     std::vector<std::vector<double>> value(T);
@@ -190,6 +191,7 @@ M_CGreedy(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector
         }
     }
 
+    std::cout << "[before rounding:" << Fx << "]";
     double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
 
     std::vector<bi_node> temp_seeds;
@@ -211,6 +213,7 @@ M_CGreedy(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector
     delete[] Q.ids;
     return tight_bound;
 }
+
 
 double M_CGreedy_Partition(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
     //the fractional solution (use integers to avoid float error)
@@ -286,22 +289,23 @@ double M_CGreedy_Partition(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t
 
     //advanced-rounding
     for (int i = 0; i < T; i++) {
-        int x = 0;
-        while (x < G.n && (frac_x[G.n * i + x] == 0 || frac_x[G.n * i + x] == t_max)) x++;
-        if (x == G.n) continue;
-        int y = x + 1;
-        while (y < G.n) {
-            while (y < G.n && (frac_x[G.n * i + y] == 0 || frac_x[G.n * i + y] == t_max)) y++;
-            double dx = 0, dy = 0;
-            for (long rr: RRI.covered[G.n * i + x]) {
-                dx += q_R[rr];
+        std::vector<std::pair<double, int>> gradient;
+        for (int j = 0; j < G.n; ++j) {
+            if (frac_x[G.n * i + j] > 0 && frac_x[G.n * i + j] < t_max) {
+                gradient.emplace_back(0, j);
             }
-            dx *= (double) t_max / (double) (t_max - frac_x[G.n * i + x]);
-            for (long rr: RRI.covered[G.n * i + y]) {
-                dy += q_R[rr];
+        }
+        while (!gradient.empty()) {
+            for (int j = 0; j < gradient.size(); ++j) {
+                double dx = 0;
+                for (long rr: RRI.covered[G.n * i + gradient[j].second]) {
+                    dx += q_R[rr];
+                }
+                dx *= (double) t_max / (double) (t_max - frac_x[G.n * i + gradient[j].second]);
+                gradient[j].first = dx;
             }
-            dy *= (double) t_max / (double) (t_max - frac_x[G.n * i + y]);
-            if (dx < dy) std::swap(x, y);
+            std::sort(gradient.begin(), gradient.end());
+            int x = gradient[gradient.size() - 1].second, y = gradient[0].second;
             if (t_max - frac_x[G.n * i + x] > frac_x[G.n * i + y]) {
                 for (long rr: RRI.covered[G.n * i + x]) {
                     double q_R_old = q_R[rr];
@@ -316,7 +320,6 @@ double M_CGreedy_Partition(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t
                     Fx += q_R_old - q_R[rr];
                 }
                 frac_x[G.n * i + y] = 0;
-                y = std::max(x, y) + 1;
             } else {
                 for (long rr: RRI.covered[G.n * i + y]) {
                     double q_R_old = q_R[rr];
@@ -331,15 +334,13 @@ double M_CGreedy_Partition(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t
                     Fx += q_R_old;
                 }
                 frac_x[G.n * i + x] = t_max;
-                int t = x;
-                x = y;
-                y = std::max(t, y) + 1;
             }
-            if (frac_x[G.n * i + x] == 0 || frac_x[G.n * i + x] == t_max) {
-                x = y;
-                while (x < G.n && (frac_x[G.n * i + x] == 0 || frac_x[G.n * i + x] == t_max)) x++;
-                if (x >= G.n) break;
-                y = x + 1;
+            if (frac_x[G.n * i + x] == t_max) {
+                gradient.pop_back();
+            }
+            if (frac_x[G.n * i + y] == 0) {
+                std::swap(gradient[0], gradient[gradient.size() - 1]);
+                gradient.pop_back();
             }
         }
     }
@@ -370,20 +371,21 @@ double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &se
     auto start_time = std::chrono::high_resolution_clock::now();
 
     RRContainer R(G, T);
-    for (int i = 1; i <= i_max; ++i) {
-        seeds.clear();
-        R.resize(G, (int64) theta);
-        Cross_Round_Node_Selection(G, R, T, k, seeds);
-        std::cout << "theta:" << theta << " inf_call:" << 1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() << " pow:"
-                  << (1.0 + eps0) / pow(2, i) << std::endl;
-        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
-            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
-            break;
-        }
-        theta *= 2;
-    }
-    std::cout << "final C=" << (int64) (lambda1 / LB) << "\n";
-    R.resize(G, (int64) (lambda1 / LB));
+//    for (int i = 1; i <= i_max; ++i) {
+//        seeds.clear();
+//        R.resize(G, (int64) theta);
+//        Cross_Round_Node_Selection(G, R, T, k, seeds);
+//        std::cout << "theta:" << theta << " inf_call:" << 1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() << " pow:"
+//                  << (1.0 + eps0) / pow(2, i) << std::endl;
+//        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
+//            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
+//            break;
+//        }
+//        theta *= 2;
+//    }
+//    std::cout << "final C=" << (int64) (lambda1 / LB) << "\n";
+//    R.resize(G, (int64) (lambda1 / LB));
+    R.resize(G, 1984);
     seeds.clear();
     Cross_Round_Node_Selection(G, R, T, k, seeds);
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -419,6 +421,8 @@ double CR_OPIM_Partition(Graph &G, int64 T, int64 k, double eps, std::vector<bi_
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
 //        bi_seeds.clear();
         double upperC = M_CGreedy_Partition(G, R1, T, k, a, seeds);
+//                M_CGreedy_Partition(G, R1, T, k, a, seeds);
+//        double upperC = R1.self_inf_cal_multi(seeds) / (1.0 - 1.0 / exp(1) - 3.0 * eps / 4.0);
         auto lowerC = (double) R2.self_inf_cal_multi(seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -494,5 +498,6 @@ double effic_inf_multi(Graph &graph, std::vector<bi_node> &S, int64 T) {
     }
     return 1.0 * numCoverd * graph.n / numHyperEdge;
 }
+
 
 #endif //EXP_MRIM_H

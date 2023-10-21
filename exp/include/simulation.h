@@ -38,6 +38,8 @@ void generate_ap(Graph &graph, std::vector<int64> &A, int64 size = 1) {
     }
 }
 
+
+
 /*!
  * @brief Calculate the degree of neighbor overlap at active participant.
  * @param graph : the graph
