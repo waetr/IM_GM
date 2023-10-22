@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.10)
+project(exp)
+set(CMAKE_CXX_STANDARD 17)
+MATH(EXPR stack_size "1024*1024*1024")
+set(CMAKE_EXE_LINKER_FLAGS "-O3,-Wl,--stack,${stack_size}")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern_libs/Capacity_Constrained_IM/exp/include)
+
+add_executable(test src/test.cpp)
+add_executable(test_mrim src/test_mrim.cpp)
