@@ -4,9 +4,10 @@
 #include "IMs.h"
 #include "OPIM_new.h"
 #include "newgreedy\Heap.h"
+#include "newgreedy\mrim_rrset.h"
 
 
-void Cross_Round_Node_Selection(Graph &G, RRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
+void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
     coveredNum_tmp = new int64[G.n * T];
     memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
     std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
@@ -45,7 +46,7 @@ void Cross_Round_Node_Selection(Graph &G, RRContainer &RRI, int64 T, int64 k, st
 }
 
 
-double M_calc_bound(Graph &G, int64 T, int64 k, RRContainer &RRI, std::vector<double> &q_R) {
+double M_calc_bound(Graph &G, int64 T, int64 k, MultiRRContainer &RRI, std::vector<double> &q_R) {
     double sum = 0;
     std::vector<std::vector<double>> value(T);
     for (int i = 0; i < T; i++) {
@@ -104,7 +105,7 @@ void M_swap_rounding(Graph &G, int64 T, std::vector<std::vector<bi_node>> &bases
 }
 
 double
-M_CGreedy(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds, double delta) {
+M_CGreedy(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds, double delta) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -215,7 +216,7 @@ M_CGreedy(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector
 }
 
 
-double M_CGreedy_Partition(Graph &G, RRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
+double M_CGreedy_Partition(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
     //temporary varible
@@ -370,7 +371,7 @@ double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &se
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    RRContainer R(G, T);
+    MultiRRContainer R(G, T);
 //    for (int i = 1; i <= i_max; ++i) {
 //        seeds.clear();
 //        R.resize(G, (int64) theta);
@@ -396,7 +397,7 @@ double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &se
 double CR_OPIM_Partition(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1) - 3.0 * eps / 4.0;
-    RRContainer R1(G, T), R2(G, T);
+    MultiRRContainer R1(G, T), R2(G, T);
 
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;

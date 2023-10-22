@@ -7,7 +7,7 @@ using namespace std;
 
 double effic_inf2(Graph &graph, std::vector<bi_node> &S, std::vector<int64> &A) {
     RRContainer R0(graph, A, true);
-    R0.resize(graph, 100000);
+    R0.resize(graph, 50000);
     return R0.self_inf_cal(graph, S);
 }
 
@@ -31,7 +31,7 @@ void generate_ap1(Graph &graph, std::vector<int64> &A, int64 size = 1) {
     std::uniform_int_distribution<int64> uniformIntDistribution(0, graph.n - 1);
     for (int64 i = 0; i < size; i++) {
         int64 v = uniformIntDistribution(mt19937engine);
-        while (graph.deg_out[v] <= 5) v = uniformIntDistribution(mt19937engine);
+        while (std::find(A.begin(), A.end(), v) != A.end()) v = uniformIntDistribution(mt19937engine);
         A.emplace_back(v);
     }
 }
@@ -58,80 +58,80 @@ int main(int argc, char const *argv[]) {
     auto eps = args_eps;
 
     vector<int64> A;
-    //max_degree(G, A, 10000);
-    generate_ap(G, A, 50000);
+    //max_degree(G, A, 1000);
+    generate_ap1(G, A, 2000);
     cout << "overlap:" << estimate_neighbor_overlap(G, A) << endl;
-    RRContainer R1(G, A, true);
-    R1.resize(G, 1000);
-    RRContainer R(G, A, true);
-    R.resize(G, 10000);
-    cout << "RR sets generated!\n";
-    coveredNum_tmp = new int64[G.n];
-    nodeRemain = new bool[G.n];
-
-    cur = clock();
-    cout << "mg coverage:" << MG_OPIM_Selection(G, A, k, seeds, R1, false) << " time=" << clock() - cur;
-    cout << " spread:" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
-    seeds.clear();
-
-    cur = clock();
-    cout << "RR bound: " << RR_OPIM_Selection(G, A, k, seeds, R1, true) << " time=" << clock() - cur;
-    cout << " spread:" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
-
-    std::vector<std::vector<int64>> candidates(A.size());
-
-    std::set<int64> A_reorder(A.begin(), A.end());
-    for (int i = 0; i < A.size(); i++) {
-        for (auto e: G.g[A[i]])
-            if (A_reorder.find(e.v) == A_reorder.end()) {
-                candidates[i].push_back(e.v);
-            }
-    }
-
-    for (int t = 1; t <= 5; t ++) {
-        seeds.clear();
-        cur = clock();
-        cout << "Partition bound=" << Combined_Greedy_Partition(G, candidates, k, R, t, seeds);
-
-        cout << " CG t=" << t << " coverage=" << R.self_inf_cal(G, seeds) << " time=" << clock() - cur;
-        cout << " spread=" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
-    }
-
-    cout << endl;
-
-    for (int t = 1; t <= 5; t ++) {
-        seeds.clear();
-        cur = clock();
-        cout << "1Partition bound=" << Combined_Greedy_Partition1(G, candidates, k, R, t, seeds);
-
-        cout << " CG t=" << t << " coverage=" << R.self_inf_cal(G, seeds) << " time=" << clock() - cur;
-        cout << " spread=" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
-    }
-
-    cout << endl;
-
-    delete[] coveredNum_tmp;
-    delete[] nodeRemain;
-
-//    vector<double> eps_batch = {0.1};
+//    RRContainer R1(G, A, true);
+//    R1.resize(G, 10000);
+//    RRContainer R(G, A, true);
+//    R.resize(G, 1000);
+//    cout << "RR sets generated!\n";
+//    coveredNum_tmp = new int64[G.n];
+//    nodeRemain = new bool[G.n];
 //
-//    for (auto eps_: eps_batch) {
-//        cout << "eps=" << eps_ << endl;
-//        printf("RR-OPIM+:\n\ttime = %.3f\n", method_FOPIM(G, k, A, seeds, eps_, "RR+"));
-//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-//        seeds.clear();
+//    cur = clock();
+//    cout << "mg coverage:" << MG_OPIM_Selection(G, A, k, seeds, R, false) << " time=" << clock() - cur;
+//    cout << " spread:" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
+//    seeds.clear();
 //
-////        printf("OPIM-Matroid:\n\ttime = %.3f\n", OPIM_Matroid(G, k, A, seeds, eps_));
-////        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-////        seeds.clear();
+//    cur = clock();
+//    cout << "RR bound: " << RR_OPIM_Selection(G, A, k, seeds, R, true) << " time=" << clock() - cur;
+//    cout << " spread:" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
 //
-//        printf("OPIM-Partition:\n\ttime = %.3f\n", OPIM_Partition(G, k, A, seeds, eps_));
-//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-//        seeds.clear();
+//    std::vector<std::vector<int64>> candidates(A.size());
 //
-//        printf("OPIM-Partition1:\n\ttime = %.3f\n", OPIM_Partition1(G, k, A, seeds, eps_));
-//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-//        seeds.clear();
+//    std::set<int64> A_reorder(A.begin(), A.end());
+//    for (int i = 0; i < A.size(); i++) {
+//        for (auto e: G.g[A[i]])
+//            if (A_reorder.find(e.v) == A_reorder.end()) {
+//                candidates[i].push_back(e.v);
+//            }
 //    }
+//
+//    for (int t = 1; t <= 5; t ++) {
+//        seeds.clear();
+//        cur = clock();
+//        cout << "Partition bound=" << Combined_Greedy_Partition(G, candidates, k, R, t, seeds);
+//
+//        cout << " CG t=" << t << " coverage=" << R.self_inf_cal(G, seeds) << " time=" << clock() - cur;
+//        cout << " spread=" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
+//    }
+//
+//    cout << endl;
+//
+//    for (int t = 1; t <= 5; t += 1) {
+//        seeds.clear();
+//        cur = clock();
+//        cout << "1Partition bound=" << Combined_Greedy_Partition1(G, candidates, k, R, t, seeds);
+//
+//        cout << " CG t=" << t << " coverage=" << R.self_inf_cal(G, seeds) << " time=" << clock() - cur;
+//        cout << " spread=" << effic_inf2(G, seeds, A) << " size:" << seeds.size() << endl;
+//    }
+//
+//    cout << endl;
+//
+//    delete[] coveredNum_tmp;
+//    delete[] nodeRemain;
+
+    vector<double> eps_batch = {0.1};
+
+    for (auto eps_: eps_batch) {
+        cout << "eps=" << eps_ << endl;
+        printf("RR-OPIM+:\n\ttime = %.3f\n", method_FOPIM(G, k, A, seeds, eps_, "RR+"));
+        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+        seeds.clear();
+
+//        printf("OPIM-Matroid:\n\ttime = %.3f\n", OPIM_Matroid(G, k, A, seeds, eps_));
+//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+//        seeds.clear();
+
+        printf("OPIM-Partition:\n\ttime = %.3f\n", OPIM_Partition(G, k, A, seeds, eps_));
+        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+        seeds.clear();
+
+        printf("OPIM-Partition1:\n\ttime = %.3f\n", OPIM_Partition1(G, k, A, seeds, eps_));
+        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+        seeds.clear();
+    }
     return 0;
 }

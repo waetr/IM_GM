@@ -369,7 +369,7 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                 Q[i].k++;
                 heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[i].k, Q[i].val, Q[i].ids,
                                                                                          std::make_pair(value_v,
-                                                                                                        G.deg_out[candidates[i][j]]),
+                                                                                                        0),
                                                                                          std::make_pair(0, j));
             }
         }
@@ -402,36 +402,33 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                     Q[j].k++;
                     heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[j].k, Q[j].val, Q[j].ids,
                                                                                              std::make_pair(value_v,
-                                                                                                            G.deg_out[candidates[j][l]]),
+                                                                                                            0),
                                                                                              std::make_pair(i, l));
                 }
             }
         }
     }
-
     std::cout << "[before rounding:" << Fx << "]";
-
     double tight_bound = Fx + calc_bound(candidates, q_R, k, RRI);
 
     //advanced-rounding
     for (int i = 0; i < d; i++) {
-        std::vector<std::pair<double, int>> gradient;
-        for (int j = 0; j < candidates[i].size(); ++j) {
-            if (frac_x[i][j] > 0 && frac_x[i][j] < t_max) {
-                gradient.emplace_back(0, j);
+        int x = 0;
+        while (x < frac_x[i].size() && (frac_x[i][x] == 0 || frac_x[i][x] == t_max)) x++;
+        if (x == frac_x[i].size()) continue;
+        int y = x + 1;
+        while (y < frac_x[i].size()) {
+            while (y < frac_x[i].size() && (frac_x[i][y] == 0 || frac_x[i][y] == t_max)) y++;
+            double dx = 0, dy = 0;
+            for (long rr: RRI.covered[candidates[i][x]]) {
+                dx += q_R[rr];
             }
-        }
-        while (!gradient.empty()) {
-            for (int j = 0; j < gradient.size(); ++j) {
-                double dx = 0;
-                for (long rr: RRI.covered[candidates[i][gradient[j].second]]) {
-                    dx += q_R[rr];
-                }
-                dx *= (double) t_max / (double) (t_max - frac_x[i][gradient[j].second]);
-                gradient[j].first = dx;
+            dx *= (double) t_max / (double) (t_max - frac_x[i][x]);
+            for (long rr: RRI.covered[candidates[i][y]]) {
+                dy += q_R[rr];
             }
-            std::sort(gradient.begin(), gradient.end());
-            int x = gradient[gradient.size() - 1].second, y = gradient[0].second;
+            dy *= (double) t_max / (double) (t_max - frac_x[i][y]);
+            if (dx < dy) std::swap(x, y);
             if (t_max - frac_x[i][x] > frac_x[i][y]) {
                 for (long rr: RRI.covered[candidates[i][x]]) {
                     double q_R_old = q_R[rr];
@@ -446,6 +443,7 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                     Fx += q_R_old - q_R[rr];
                 }
                 frac_x[i][y] = 0;
+                y = std::max(x, y) + 1;
             } else {
                 for (long rr: RRI.covered[candidates[i][y]]) {
                     double q_R_old = q_R[rr];
@@ -460,13 +458,15 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                     Fx += q_R_old;
                 }
                 frac_x[i][x] = t_max;
+                int t = x;
+                x = y;
+                y = std::max(t, y) + 1;
             }
-            if (frac_x[i][x] == t_max) {
-                gradient.pop_back();
-            }
-            if (frac_x[i][y] == 0) {
-                std::swap(gradient[0], gradient[gradient.size() - 1]);
-                gradient.pop_back();
+            if (frac_x[i][x] == 0 || frac_x[i][x] == t_max) {
+                x = y;
+                while (x < frac_x[i].size() && (frac_x[i][x] == 0 || frac_x[i][x] == t_max)) x++;
+                if (x >= frac_x[i].size()) break;
+                y = x + 1;
             }
         }
     }
@@ -668,6 +668,81 @@ double OPIM_Partition1(Graph &graph, int64 k, std::vector<int64> &A, std::vector
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
     return elapsed.count();
+}
+
+int64
+RR_OPIM_Selection1(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_node> &bi_seeds, RRContainer &RRI,
+                  bool is_tightened) {
+    assert(bi_seeds.empty());
+    ///temporary varible
+    ///initialization
+    std::set<int64> A_reorder(A.begin(), A.end());
+    for (int i = 0; i < A.size(); i++) {
+        for (auto e: graph.g[A[i]])
+            if (A_reorder.find(e.v) == A_reorder.end()) {
+                nodeRemain[e.v] = true;
+            }
+    }
+    A_reorder.clear();
+    std::vector<bool> RISetCovered(RRI.R.size(), false);
+    memcpy(coveredNum_tmp, RRI.coveredNum, graph.n * sizeof(int64));
+    int64 current_influence = 0, N_empty = 0;
+    int64 xx = INT64_MAX;
+
+    std::vector<int64> Ni_empty(A.size(), 0);
+    while (N_empty < A.size()) {
+        if (is_tightened) {
+            int64 tight_mg = 0;
+            std::vector<int64> tight_list;
+            for (int i = 0; i < A.size(); i++) {
+                tight_list.clear();
+                for (auto e: graph.g[A[i]])
+                    if (coveredNum_tmp[e.v] > 0) tight_list.emplace_back(coveredNum_tmp[e.v]);
+                int64 k_max = std::min((int64) tight_list.size(), k);
+                std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
+                                 std::greater<>());
+                for (int j = 0; j < k_max; j++) {
+                    tight_mg += tight_list[j];
+                }
+            }
+            xx = std::min(xx, current_influence + tight_mg);
+        }
+        for (int i = 0; i < A.size(); i++) { ///N_numbers[i] == k + 1 means that N[i] is full
+            if (Ni_empty[i] != k + 1 && Ni_empty[i] == k) {
+                Ni_empty[i] = k + 1;
+                N_empty++;
+            }
+            if (Ni_empty[i] == k + 1) continue;
+
+            int64 v = -1;
+            for (auto e: graph.g[A[i]])
+                if (nodeRemain[e.v] && (v == -1 || (coveredNum_tmp[e.v] > coveredNum_tmp[v] ||
+                coveredNum_tmp[e.v] == coveredNum_tmp[v] && graph.deg_out[e.v]>graph.deg_out[v]))) v = e.v;
+
+            if (Ni_empty[i] != k + 1 && v == -1) {
+                Ni_empty[i] = k + 1;
+                N_empty++;
+            }
+            if (Ni_empty[i] == k + 1) continue;
+            ///choose v
+            Ni_empty[i]++;
+            bi_seeds.emplace_back(v, A[i]);
+            current_influence += coveredNum_tmp[v];
+            nodeRemain[v] = false;
+            for (int64 RIIndex: RRI.covered[v]) {
+                if (RISetCovered[RIIndex]) continue;
+                for (int64 u: RRI.R[RIIndex]) {
+                    coveredNum_tmp[u]--;
+                }
+                RISetCovered[RIIndex] = true;
+            }
+        }
+    }
+    for (int i = 0; i < A.size(); i++) {
+        for (auto e: graph.g[A[i]])
+            nodeRemain[e.v] = false;
+    }
+    return is_tightened ? xx : current_influence;
 }
 
 #endif //EXP_GREEDY_H

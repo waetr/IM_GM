@@ -230,21 +230,17 @@ public:
 class RRContainer {
 private:
     ///@brief temporary array for RI_Gen
+    int64 *dist;
     bool *DijkstraVis;
     size_t _sizeOfRRsets = 0;
     bool RIFlag = false; //false : FI sets true: RI sets
     //set which is excluded from the spread propagation (bitwise representation)
     std::vector<bool> excludedNodes;
-    int64 G_n = 0;
-    int64 round = 0;
 
 
 public:
     ///collection of RI sets
     std::vector<std::vector<int64>> R;
-
-    ///collection of multi-RI sets
-    std::vector<std::vector<std::vector<int64>>> multi_R;
 
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered;
@@ -252,6 +248,7 @@ public:
     int64 *coveredNum;
 
     RRContainer() {
+        dist = nullptr;
         DijkstraVis = nullptr;
         covered = nullptr;
         coveredNum = nullptr;
@@ -259,25 +256,17 @@ public:
 
     explicit RRContainer(Graph &G, std::vector<int64> &A, bool isRRSet) {
         excludedNodes.resize(G.n, false);
-        for (auto u: A) excludedNodes[u] = true;
+        for (auto u : A) excludedNodes[u] = true;
         RIFlag = isRRSet;
+        dist = new int64[G.n]();
         DijkstraVis = new bool[G.n]();
         covered = new std::vector<int64>[G.n]();
         coveredNum = new int64[G.n]();
-        G_n = G.n;
-    }
-
-    explicit RRContainer(Graph &G, int64 mrim_round) {
-        round = mrim_round;
-        excludedNodes.resize(G.n, false);
-        RIFlag = true;
-        DijkstraVis = new bool[G.n]();
-        covered = new std::vector<int64>[G.n * round]();
-        coveredNum = new int64[G.n * round]();
-        G_n = G.n;
+        memset(dist, -1, sizeof(int64) * G.n);
     }
 
     ~RRContainer() {
+        delete[] dist;
         delete[] DijkstraVis;
         delete[] covered;
         delete[] coveredNum;
@@ -288,8 +277,7 @@ public:
      * @return number of RR sets in this RR's container.
      */
     size_t numOfRRsets() const {
-        if(round == 0) return R.size();
-        else return multi_R.size();
+        return R.size();
     }
 
     /*!
@@ -297,10 +285,6 @@ public:
      */
     size_t sizeOfRRsets() const {
         return _sizeOfRRsets;
-    }
-
-    size_t idx(size_t node_idx, size_t round_idx) const {
-        return round_idx*G_n + node_idx;
     }
 
     /*!
@@ -314,7 +298,7 @@ public:
         auto *edge_list = RIFlag ? &graph.gT : &graph.g;
         if (graph.diff_model == IC) {
             std::deque<int64> Q;
-            for (int64 u: uStart)
+            for (int64 u : uStart)
                 if (!excludedNodes[u]) {
                     DijkstraVis[u] = true;
                     Q.push_back(u);
@@ -323,7 +307,7 @@ public:
                 int64 u = Q.front();
                 Q.pop_front();
                 RR.emplace_back(u);
-                for (auto &edgeT: (*edge_list)[u]) {
+                for (auto &edgeT : (*edge_list)[u]) {
                     if (excludedNodes[edgeT.v] || DijkstraVis[edgeT.v]) continue;
                     bool activate_success = (random_real() < edgeT.p);
                     if (activate_success) {
@@ -334,7 +318,7 @@ public:
             }
         }
 
-        for (int64 u: RR) {
+        for (int64 u : RR) {
             DijkstraVis[u] = false;
         }
     }
@@ -346,29 +330,14 @@ public:
      */
     void insertOneRandomRRset(Graph &G, std::uniform_int_distribution<int64> &uniformIntDistribution) {
         std::vector<int64> RR;
-        std::vector<std::vector<int64>> multi_RR;
         int64 v = uniformIntDistribution(mt19937engine);
         std::vector<int64> vStart = {v};
-        if(round == 0) {
-            RI_Gen(G, vStart, RR);
-            R.emplace_back(RR);
-            _sizeOfRRsets += RR.size();
-            for (int64 u: RR) {
-                covered[u].emplace_back(R.size() - 1);
-                coveredNum[u]++;
-            }
-        } else {
-            for (int i = 0; i < round; ++i) {
-                RR.clear();
-                RI_Gen(G, vStart, RR);
-                multi_RR.emplace_back(RR);
-                _sizeOfRRsets += RR.size();
-                for (int64 u: RR) {
-                    covered[idx(u, i)].emplace_back(multi_R.size());
-                    coveredNum[idx(u, i)]++;
-                }
-            }
-            multi_R.emplace_back(multi_RR);
+        RI_Gen(G, vStart, RR);
+        R.emplace_back(RR);
+        _sizeOfRRsets += RR.size();
+        for (int64 u : RR) {
+            covered[u].emplace_back(R.size() - 1);
+            coveredNum[u]++;
         }
     }
 
@@ -379,13 +348,9 @@ public:
      * @param size
      */
     void resize(Graph &G, size_t size) {
-        //assert(std::max(R.size(), multi_R.size()) <= size);
+        assert(R.size() <= size);
         std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
-        if(round == 0) {
-            while (R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
-        } else {
-            while (multi_R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
-        }
+        while (R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
     }
 
     /*!
@@ -395,10 +360,9 @@ public:
      * @return : the number of RR sets that are covered by S
      */
     int64 self_inf_cal(Graph &G, std::vector<int64> &vecSeed) const {
-        assert(!R.empty());
         std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
-        for (auto seed: vecSeed) {
-            for (auto node: covered[seed]) {
+        for (auto seed : vecSeed) {
+            for (auto node : covered[seed]) {
                 vecBoolVst[node] = true;
             }
         }
@@ -412,33 +376,14 @@ public:
  * @return : the number of RR sets that are covered by S
  */
     int64 self_inf_cal(Graph &G, std::vector<bi_node> &vecSeed) const {
-        assert(!R.empty());
         std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
-        for (auto seed: vecSeed) {
-            for (auto node: covered[seed.first]) {
-                vecBoolVst[node] = true;
-            }
-        }
-        return std::count(vecBoolVst.begin(), vecBoolVst.end(), true);
-    }
-
-    /*!
-* @brief calculate the coverage of vertex set S on these RR sets
-* @param G : the graph
-* @param vecSeed : vertex set S
-* @return : the number of RR sets that are covered by S
-*/
-    int64 self_inf_cal_multi(std::vector<bi_node> &vecSeed) const {
-        assert(!multi_R.empty());
-        std::vector<bool> vecBoolVst = std::vector<bool>(multi_R.size());
-        for (auto seed: vecSeed) {
-            for (auto node: covered[idx(seed.first, seed.second)]) {
+        for (auto seed : vecSeed) {
+            for (auto node : covered[seed.first]) {
                 vecBoolVst[node] = true;
             }
         }
         return std::count(vecBoolVst.begin(), vecBoolVst.end(), true);
     }
 };
-
 
 #endif //UNTITLED_GRAPH_H
