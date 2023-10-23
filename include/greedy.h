@@ -258,7 +258,7 @@ Combined_Greedy_Partition(Graph &G, std::vector<std::vector<int64>> &candidates,
             }
         }
     }
-    std::cout << "[before rounding:" << Fx << "]";
+
     double tight_bound = Fx + calc_bound(candidates, q_R, k, RRI);
 
     //advanced-rounding
@@ -336,8 +336,9 @@ Combined_Greedy_Partition(Graph &G, std::vector<std::vector<int64>> &candidates,
 }
 
 double
-Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRContainer &RRI, int64 t_max,
-                          std::vector<bi_node> &bi_seeds) {
+Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRContainer &RRI,
+                           int64 t_max,
+                           std::vector<bi_node> &bi_seeds) {
     //the number of partition
     const int64 d = candidates.size();
 
@@ -408,7 +409,7 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
             }
         }
     }
-    std::cout << "[before rounding:" << Fx << "]";
+
     double tight_bound = Fx + calc_bound(candidates, q_R, k, RRI);
 
     //advanced-rounding
@@ -584,7 +585,6 @@ double OPIM_Partition(Graph &graph, int64 k, std::vector<int64> &A, std::vector<
     while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + 3.0 * eps / 4.0) a++;
     std::cout << "a=" << a << "\n";
     for (int64 i = 1; i <= i_max; i++) {
-        std::cout << "i=" << i << "\n";
         bi_seeds.clear();
         cur = clock();
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
@@ -646,7 +646,6 @@ double OPIM_Partition1(Graph &graph, int64 k, std::vector<int64> &A, std::vector
     while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + 3.0 * eps / 4.0) a++;
     std::cout << "a=" << a << "\n";
     for (int64 i = 1; i <= i_max; i++) {
-        std::cout << "i=" << i << "\n";
         bi_seeds.clear();
         cur = clock();
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
@@ -670,79 +669,122 @@ double OPIM_Partition1(Graph &graph, int64 k, std::vector<int64> &A, std::vector
     return elapsed.count();
 }
 
-int64
-RR_OPIM_Selection1(Graph &graph, std::vector<int64> &A, int64 k, std::vector<bi_node> &bi_seeds, RRContainer &RRI,
-                  bool is_tightened) {
+double
+naive_RR(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRContainer &RRI,
+         std::vector<bi_node> &bi_seeds) {
+    //the number of partition
+    const int64 d = candidates.size();
+
+    //the fractional solution (use integers to avoid float error)
+    std::vector<std::vector<bool>> vis(d);
+    for (int i = 0; i < d; i++) {
+        vis[i].resize(candidates[i].size(), false);
+    }
+    //temporary varible
+    coveredNum_tmp = new int64[G.n];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<int64> cardinalities(d, 0);
+    int64 current_influence = 0, tight_bound = INT64_MAX;
+
+    for (int i = 0; i < d * k; ++i) {
+        int64 covered_value = -1, u0, t0 = i % d;
+        if (t0 == 0) {
+            int64 tight_mg = 0;
+            std::vector<int64> tight_list;
+            for (int j = 0; j < d; j++) {
+                tight_list.clear();
+                for (auto e : candidates[j]) tight_list.emplace_back(coveredNum_tmp[e]);
+                int64 k_max = std::min((int64) tight_list.size(), k);
+                std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
+                                 std::greater<>());
+                for (int l = 0; l < k_max; l++) {
+                    tight_mg += tight_list[l];
+                }
+            }
+            tight_bound = std::min(tight_bound, current_influence + tight_mg);
+        }
+        if (cardinalities[t0] == k || cardinalities[t0] == candidates[t0].size()) continue;
+        for (int u = 0; u < candidates[t0].size(); ++u) {
+            if (vis[t0][u]) continue;
+            if (coveredNum_tmp[candidates[t0][u]] > covered_value) {
+                covered_value = coveredNum_tmp[candidates[t0][u]];
+                u0 = u;
+            }
+        }
+        vis[t0][u0] = true;
+        current_influence += coveredNum_tmp[candidates[t0][u0]];
+        bi_seeds.emplace_back(candidates[t0][u0], t0);
+        cardinalities[t0] += 1;
+        for (auto RRIndex: RRI.covered[candidates[t0][u0]]) {
+            if (RRSetCovered[RRIndex]) continue;
+            for (auto u: RRI.R[RRIndex]) {
+                coveredNum_tmp[u]--;
+            }
+            RRSetCovered[RRIndex] = true;
+        }
+    }
+    delete[] coveredNum_tmp;
+    return tight_bound;
+}
+
+double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node> &bi_seeds, double eps) {
     assert(bi_seeds.empty());
-    ///temporary varible
-    ///initialization
+    const double delta = 1.0 / graph.n;
+    const double approx = 0.5;
+    std::vector<bi_node> pre_seeds;
+    method_random(graph, k, A, pre_seeds);
+    int64 opt_lower_bound = pre_seeds.size();
+    RRContainer R1(graph, A, true), R2(graph, A, true);
+
+    std::vector<std::vector<int64>> candidates(A.size());
+
     std::set<int64> A_reorder(A.begin(), A.end());
     for (int i = 0; i < A.size(); i++) {
         for (auto e: graph.g[A[i]])
             if (A_reorder.find(e.v) == A_reorder.end()) {
-                nodeRemain[e.v] = true;
+                candidates[i].push_back(e.v);
             }
     }
-    A_reorder.clear();
-    std::vector<bool> RISetCovered(RRI.R.size(), false);
-    memcpy(coveredNum_tmp, RRI.coveredNum, graph.n * sizeof(int64));
-    int64 current_influence = 0, N_empty = 0;
-    int64 xx = INT64_MAX;
 
-    std::vector<int64> Ni_empty(A.size(), 0);
-    while (N_empty < A.size()) {
-        if (is_tightened) {
-            int64 tight_mg = 0;
-            std::vector<int64> tight_list;
-            for (int i = 0; i < A.size(); i++) {
-                tight_list.clear();
-                for (auto e: graph.g[A[i]])
-                    if (coveredNum_tmp[e.v] > 0) tight_list.emplace_back(coveredNum_tmp[e.v]);
-                int64 k_max = std::min((int64) tight_list.size(), k);
-                std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
-                                 std::greater<>());
-                for (int j = 0; j < k_max; j++) {
-                    tight_mg += tight_list[j];
-                }
-            }
-            xx = std::min(xx, current_influence + tight_mg);
-        }
-        for (int i = 0; i < A.size(); i++) { ///N_numbers[i] == k + 1 means that N[i] is full
-            if (Ni_empty[i] != k + 1 && Ni_empty[i] == k) {
-                Ni_empty[i] = k + 1;
-                N_empty++;
-            }
-            if (Ni_empty[i] == k + 1) continue;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    double time1 = 0, time2 = 0, cur;
+    double sum_log = 0;
+    for (auto &candidate: candidates) sum_log += logcnk(candidate.size(), k);
+    double C_max = 2.0 * graph.n * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps /
+                   opt_lower_bound;
+    double C_0 = C_max * eps * eps / graph.n;
+    cur = clock();
+    R1.resize(graph, (size_t) C_0);
+    R2.resize(graph, (size_t) C_0);
+    time1 += time_by(cur);
+    auto i_max = (int64) (log2(C_max / C_0) + 1);
+    double d0 = log(3.0 * i_max / delta);
 
-            int64 v = -1;
-            for (auto e: graph.g[A[i]])
-                if (nodeRemain[e.v] && (v == -1 || (coveredNum_tmp[e.v] > coveredNum_tmp[v] ||
-                coveredNum_tmp[e.v] == coveredNum_tmp[v] && graph.deg_out[e.v]>graph.deg_out[v]))) v = e.v;
-
-            if (Ni_empty[i] != k + 1 && v == -1) {
-                Ni_empty[i] = k + 1;
-                N_empty++;
-            }
-            if (Ni_empty[i] == k + 1) continue;
-            ///choose v
-            Ni_empty[i]++;
-            bi_seeds.emplace_back(v, A[i]);
-            current_influence += coveredNum_tmp[v];
-            nodeRemain[v] = false;
-            for (int64 RIIndex: RRI.covered[v]) {
-                if (RISetCovered[RIIndex]) continue;
-                for (int64 u: RRI.R[RIIndex]) {
-                    coveredNum_tmp[u]--;
-                }
-                RISetCovered[RIIndex] = true;
-            }
-        }
+    for (int64 i = 1; i <= i_max; i++) {
+        bi_seeds.clear();
+        cur = clock();
+//        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
+//        bi_seeds.clear();
+        double upperC = naive_RR(graph, candidates, k, R1,  bi_seeds);
+        auto lowerC = (double) R2.self_inf_cal(graph, bi_seeds);
+        time2 += time_by(cur);
+        double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+        double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
+        double a0 = lower / upper;
+        //printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
+        if (a0 >= approx - eps || i == i_max) break;
+        cur = clock();
+        R1.resize(graph, R1.R.size() * 2ll);
+        R2.resize(graph, R2.R.size() * 2ll);
+        time1 += time_by(cur);
     }
-    for (int i = 0; i < A.size(); i++) {
-        for (auto e: graph.g[A[i]])
-            nodeRemain[e.v] = false;
-    }
-    return is_tightened ? xx : current_influence;
+    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
 }
+
 
 #endif //EXP_GREEDY_H

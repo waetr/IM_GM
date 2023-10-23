@@ -6,5 +6,5 @@ set(CMAKE_EXE_LINKER_FLAGS "-O3,-Wl,--stack,${stack_size}")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern_libs/Capacity_Constrained_IM/exp/include)
 
-add_executable(test src/test.cpp)
+add_executable(test1 src/test.cpp)
 add_executable(test_mrim src/test_mrim.cpp)
