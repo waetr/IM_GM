@@ -370,7 +370,7 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                 Q[i].k++;
                 heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[i].k, Q[i].val, Q[i].ids,
                                                                                          std::make_pair(value_v,
-                                                                                                        0),
+                                                                                                        candidates[i][j]),
                                                                                          std::make_pair(0, j));
             }
         }
@@ -402,8 +402,7 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                     value_v *= (double) t_max / (double) (t_max - frac_x[j][l]);
                     Q[j].k++;
                     heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[j].k, Q[j].val, Q[j].ids,
-                                                                                             std::make_pair(value_v,
-                                                                                                            0),
+                                                                                             std::make_pair(value_v,candidates[j][l]),
                                                                                              std::make_pair(i, l));
                 }
             }
@@ -681,8 +680,8 @@ naive_RR(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRConta
         vis[i].resize(candidates[i].size(), false);
     }
     //temporary varible
-    coveredNum_tmp = new int64[G.n];
-    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * sizeof(int64));
+    auto coveredNum_tmp0 = new int64[G.n];
+    memcpy(coveredNum_tmp0, RRI.coveredNum, G.n * sizeof(int64));
     std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
     std::vector<int64> cardinalities(d, 0);
     int64 current_influence = 0, tight_bound = INT64_MAX;
@@ -694,7 +693,7 @@ naive_RR(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRConta
             std::vector<int64> tight_list;
             for (int j = 0; j < d; j++) {
                 tight_list.clear();
-                for (auto e : candidates[j]) tight_list.emplace_back(coveredNum_tmp[e]);
+                for (auto e : candidates[j]) tight_list.emplace_back(coveredNum_tmp0[e]);
                 int64 k_max = std::min((int64) tight_list.size(), k);
                 std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
                                  std::greater<>());
@@ -707,24 +706,24 @@ naive_RR(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRConta
         if (cardinalities[t0] == k || cardinalities[t0] == candidates[t0].size()) continue;
         for (int u = 0; u < candidates[t0].size(); ++u) {
             if (vis[t0][u]) continue;
-            if (coveredNum_tmp[candidates[t0][u]] > covered_value) {
-                covered_value = coveredNum_tmp[candidates[t0][u]];
+            if (coveredNum_tmp0[candidates[t0][u]] > covered_value) {
+                covered_value = coveredNum_tmp0[candidates[t0][u]];
                 u0 = u;
             }
         }
         vis[t0][u0] = true;
-        current_influence += coveredNum_tmp[candidates[t0][u0]];
+        current_influence += coveredNum_tmp0[candidates[t0][u0]];
         bi_seeds.emplace_back(candidates[t0][u0], t0);
         cardinalities[t0] += 1;
         for (auto RRIndex: RRI.covered[candidates[t0][u0]]) {
             if (RRSetCovered[RRIndex]) continue;
             for (auto u: RRI.R[RRIndex]) {
-                coveredNum_tmp[u]--;
+                coveredNum_tmp0[u]--;
             }
             RRSetCovered[RRIndex] = true;
         }
     }
-    delete[] coveredNum_tmp;
+    delete[] coveredNum_tmp0;
     return tight_bound;
 }
 
@@ -754,7 +753,8 @@ double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node
     double C_max = 2.0 * graph.n * sqr(
             approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps /
                    opt_lower_bound;
-    double C_0 = C_max * eps * eps / graph.n;
+    double C_0 = 2.0 * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(graph, (size_t) C_0);
     R2.resize(graph, (size_t) C_0);
@@ -767,7 +767,7 @@ double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node
         cur = clock();
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
 //        bi_seeds.clear();
-        double upperC = naive_RR(graph, candidates, k, R1,  bi_seeds);
+        double upperC = naive_RR(graph, candidates, k, R1, bi_seeds);
         auto lowerC = (double) R2.self_inf_cal(graph, bi_seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -776,8 +776,9 @@ double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node
         //printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
         if (a0 >= approx - eps || i == i_max) break;
         cur = clock();
-        R1.resize(graph, R1.R.size() * 2ll);
-        R2.resize(graph, R2.R.size() * 2ll);
+        C_0 *= 2;
+        R1.resize(graph, (size_t) C_0);
+        R2.resize(graph, (size_t) C_0);
         time1 += time_by(cur);
     }
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
