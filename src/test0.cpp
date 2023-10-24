@@ -65,30 +65,41 @@ int main(int argc, char const *argv[]) {
     coveredNum_tmp = new int64[G.n];
     nodeRemain = new bool[G.n];
 
+
     RRContainer R(G, A, true);
     R.resize(G, 500);
     for (int i = 0; i < 10; ++i) {
         R.resize(G, R.numOfRRsets() * 2);
         cout << "RR set num=" << R.numOfRRsets() << endl;
+        cur = clock();
         RR_OPIM_Selection(G, A, k, seeds, R, false);
-        cout << "RR:" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << endl;
+        cout << "RR:" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << " time=" << clock() - cur
+             << endl;
         seeds.clear();
+        cur = clock();
         naive_RR(G, candidates, k, R, seeds);
-        cout << "RR-:" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << endl;
+        cout << "RR-:" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << " time=" << clock() - cur
+             << endl;
         seeds.clear();
         for (int j = 1; j <= 8; j *= 2) {
-            Combined_Greedy(G, candidates, k, R, j, seeds, 1.0/G.n);
-            cout << "CG-M(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << endl;
+            cur = clock();
+            Combined_Greedy(G, candidates, k, R, j, seeds, 1.0 / G.n);
+            cout << "CG-M(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
+                 << " time=" << clock() - cur << endl;
             seeds.clear();
         }
         for (int j = 1; j <= 8; j *= 2) {
+            cur = clock();
             Combined_Greedy_Partition1(G, candidates, k, R, j, seeds);
-            cout << "CG(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << endl;
+            cout << "CG(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
+                 << " time=" << clock() - cur << endl;
             seeds.clear();
         }
         for (int j = 1; j <= 8; j *= 2) {
+            cur = clock();
             Combined_Greedy_Partition(G, candidates, k, R, j, seeds);
-            cout << "CG+(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds) << endl;
+            cout << "CG+(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
+                 << " time=" << clock() - cur << endl;
             seeds.clear();
         }
         cout << endl;

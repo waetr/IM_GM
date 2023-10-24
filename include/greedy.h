@@ -109,7 +109,7 @@ Combined_Greedy(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, 
                                                                                                                Q.ids,
                                                                                                                std::make_pair(
                                                                                                                        value_v,
-                                                                                                                       G.deg_out[candidates[i][j]]),
+                                                                                                                       candidates[i][j]),
                                                                                                                std::make_pair(
                                                                                                                        0,
                                                                                                                        std::make_pair(
@@ -153,7 +153,7 @@ Combined_Greedy(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, 
                                                                                                                    Q.ids,
                                                                                                                    std::make_pair(
                                                                                                                            value_v,
-                                                                                                                           G.deg_out[candidates[j][l]]),
+                                                                                                                           candidates[j][l]),
                                                                                                                    std::make_pair(
                                                                                                                            i,
                                                                                                                            std::make_pair(
@@ -402,7 +402,8 @@ Combined_Greedy_Partition1(Graph &G, std::vector<std::vector<int64>> &candidates
                     value_v *= (double) t_max / (double) (t_max - frac_x[j][l]);
                     Q[j].k++;
                     heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[j].k, Q[j].val, Q[j].ids,
-                                                                                             std::make_pair(value_v,candidates[j][l]),
+                                                                                             std::make_pair(value_v,
+                                                                                                            candidates[j][l]),
                                                                                              std::make_pair(i, l));
                 }
             }
@@ -521,7 +522,6 @@ double OPIM_Matroid(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi
 
     int64 a = ceil(1.0 / eps);
     for (int64 i = 1; i <= i_max; i++) {
-        std::cout << "i=" << i << "\n";
         bi_seeds.clear();
         cur = clock();
         double d1 = std::min(delta / (4.0 * i_max), delta * eps * eps / graph.n);
@@ -693,7 +693,7 @@ naive_RR(Graph &G, std::vector<std::vector<int64>> &candidates, int64 k, RRConta
             std::vector<int64> tight_list;
             for (int j = 0; j < d; j++) {
                 tight_list.clear();
-                for (auto e : candidates[j]) tight_list.emplace_back(coveredNum_tmp0[e]);
+                for (auto e: candidates[j]) tight_list.emplace_back(coveredNum_tmp0[e]);
                 int64 k_max = std::min((int64) tight_list.size(), k);
                 std::nth_element(tight_list.begin(), tight_list.begin() + k_max - 1, tight_list.end(),
                                  std::greater<>());
@@ -767,7 +767,7 @@ double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node
         cur = clock();
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
 //        bi_seeds.clear();
-        double upperC = naive_RR(graph, candidates, k, R1, bi_seeds);
+        double upperC = Combined_Greedy_Partition1(graph, candidates, k, R1, 1, bi_seeds);
         auto lowerC = (double) R2.self_inf_cal(graph, bi_seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -787,5 +787,64 @@ double OPIM_RR(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node
     return elapsed.count();
 }
 
+double OPIM_MG(Graph &graph, int64 k, std::vector<int64> &A, std::vector<bi_node> &bi_seeds, double eps) {
+    assert(bi_seeds.empty());
+    const double delta = 1.0 / graph.n;
+    const double approx = 0.5;
+    std::vector<bi_node> pre_seeds;
+    method_random(graph, k, A, pre_seeds);
+    int64 opt_lower_bound = pre_seeds.size();
+    RRContainer R1(graph, A, true), R2(graph, A, true);
+
+    std::vector<std::vector<int64>> candidates(A.size());
+
+    std::set<int64> A_reorder(A.begin(), A.end());
+    for (int i = 0; i < A.size(); i++) {
+        for (auto e: graph.g[A[i]])
+            if (A_reorder.find(e.v) == A_reorder.end()) {
+                candidates[i].push_back(e.v);
+            }
+    }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    double time1 = 0, time2 = 0, cur;
+    double sum_log = 0;
+    for (auto &candidate: candidates) sum_log += logcnk(candidate.size(), k);
+    double C_max = 2.0 * graph.n * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps /
+                   opt_lower_bound;
+    double C_0 = 2.0 * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+    cur = clock();
+    R1.resize(graph, (size_t) C_0);
+    R2.resize(graph, (size_t) C_0);
+    time1 += time_by(cur);
+    auto i_max = (int64) (log2(C_max / C_0) + 1);
+    double d0 = log(3.0 * i_max / delta);
+
+    for (int64 i = 1; i <= i_max; i++) {
+        bi_seeds.clear();
+        cur = clock();
+//        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
+//        bi_seeds.clear();
+        double upperC = Combined_Greedy(graph, candidates, k, R1, 1, bi_seeds, 1.0 / graph.n);
+        auto lowerC = (double) R2.self_inf_cal(graph, bi_seeds);
+        time2 += time_by(cur);
+        double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+        double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
+        double a0 = lower / upper;
+        //printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
+        if (a0 >= approx - eps || i == i_max) break;
+        cur = clock();
+        C_0 *= 2;
+        R1.resize(graph, (size_t) C_0);
+        R2.resize(graph, (size_t) C_0);
+        time1 += time_by(cur);
+    }
+    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
+}
 
 #endif //EXP_GREEDY_H
