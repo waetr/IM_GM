@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
     generate_ap(G, A, A_size);
 
     RRContainer R_judge(G, A, true);
-    R_judge.resize(G, 1000000);
+    R_judge.resize(G, 100000);
 
     std::vector<std::vector<int64>> candidates(A.size());
     std::set<int64> A_reorder(A.begin(), A.end());
@@ -90,15 +90,8 @@ int main(int argc, char const *argv[]) {
         }
         for (int j = 1; j <= 8; j *= 2) {
             cur = clock();
-            Combined_Greedy_Partition1(G, candidates, k, R, j, seeds);
-            cout << "CG(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
-                 << " time=" << clock() - cur << endl;
-            seeds.clear();
-        }
-        for (int j = 1; j <= 8; j *= 2) {
-            cur = clock();
             Combined_Greedy_Partition(G, candidates, k, R, j, seeds);
-            cout << "CG+(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
+            cout << "CG(t=" << j << "):" << R.self_inf_cal(G, seeds) << "|" << R_judge.self_inf_cal(G, seeds)
                  << " time=" << clock() - cur << endl;
             seeds.clear();
         }

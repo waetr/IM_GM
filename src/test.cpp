@@ -56,19 +56,23 @@ int main(int argc, char const *argv[]) {
 
     {
         cout << "eps=" << eps_ << endl;
-        printf("MG-OPIM:\n\ttime = %.3f\n", OPIM_MG(G, k, A, seeds, eps_));
+//        printf("MG-OPIM:\n\ttime = %.3f\n", OPIM_MG(G, k, A, seeds, eps_));
+//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+//        seeds.clear();
+//
+//        printf("RR-OPIM:\n\ttime = %.3f\n", OPIM_RR(G, k, A, seeds, eps_));
+//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+//        seeds.clear();
+//
+//        printf("OPIM-Matroid:\n\ttime = %.3f\n", OPIM_Matroid(G, k, A, seeds, eps_));
+//        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
+//        seeds.clear();
+
+        printf("OPIM-Partition:\n\ttime = %.3f\n", OPIM_Partition(G, k, A, seeds, eps_));
         printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
         seeds.clear();
 
-        printf("RR-OPIM:\n\ttime = %.3f\n", OPIM_RR(G, k, A, seeds, eps_));
-        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-        seeds.clear();
-
-        printf("OPIM-Matroid:\n\ttime = %.3f\n", OPIM_Matroid(G, k, A, seeds, eps_));
-        printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
-        seeds.clear();
-
-        printf("OPIM-Partition:\n\ttime = %.3f\n", OPIM_Partition1(G, k, A, seeds, eps_));
+        printf("OPIM-Partition_1:\n\ttime = %.3f\n", OPIM_Partition_1(G, k, A, seeds, eps_));
         printf("\tsize = %zu\n\tspread = %.3f\n", seeds.size(), effic_inf(G, seeds, A));
         seeds.clear();
     }
