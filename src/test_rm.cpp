@@ -31,7 +31,7 @@ int main(int argc, char const *argv[]) {
             cur = clock();
             CGreedy_RM(G, R, T, t, seeds);
             cout <<  " CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
-            cout << " value = " << R_judge.self_inf_cal_multi(seeds) << endl;
+            cout << " value = " << R.self_inf_cal_multi(seeds) << "|" << R_judge.self_inf_cal_multi(seeds) << endl;
             vector<int> num(G.n, 0);
             for (int j = 0; j < seeds.size(); ++j) {
                 num[seeds[j].first]++;
@@ -45,7 +45,7 @@ int main(int argc, char const *argv[]) {
             cur = clock();
             CGreedy_RM_PM(G, R, T, t, seeds);
             cout <<  " CG-PM t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
-            cout << " value = " << R_judge.self_inf_cal_multi(seeds) << endl;
+            cout << " value = " << R.self_inf_cal_multi(seeds) << "|" << R_judge.self_inf_cal_multi(seeds) << endl;
             vector<int> num(G.n, 0);
             for (int j = 0; j < seeds.size(); ++j) {
                 num[seeds[j].first]++;
