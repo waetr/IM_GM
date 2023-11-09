@@ -9,3 +9,4 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern_libs/Capacity_Constrained
 add_executable(test0 src/test0.cpp)
 add_executable(test1 src/test.cpp)
 add_executable(test_mrim src/test_mrim.cpp)
+add_executable(test_rm src/test_rm.cpp)

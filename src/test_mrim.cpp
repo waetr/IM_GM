@@ -49,16 +49,36 @@ int main(int argc, char const *argv[]) {
     G.set_diffusion_model(IC); // Only support IC
     printf("read time = %.3f n=%ld m=%ld\n", time_by(cur), G.n, G.m);
     printf("Evaluating influence in [0.99,1.01]*EPT with prob. 99.9%%.\n");
-    vector<bi_node> seeds, seeds1;
+    vector<bi_node> seeds;
     auto k = atoi(argv[2]);
     auto T = atoi(argv[3]);
 
-//    MultiRRContainer R_judge(G, T);
-//    R_judge.resize(G, 100000);
-//
-//    cout << "RR set generated!\n";
+    MultiRRContainer R_judge(G, T);
+    R_judge.resize(G, 100000);
 
-    CR_OPIM_Partition(G, T, k, 0.1, seeds);
+    MultiRRContainer R(G, T);
+    R.resize(G, 50);
+
+    cout << "RR set generated!\n";
+
+    for (int i = 1; i <= 10; ++i) {
+        R.resize(G, R.numOfRRsets() * 2);
+        cout << "# of RR sets = " << R.numOfRRsets() << endl;
+        for(int t = 1; t <= 16; t *= 2) {
+            seeds.clear();
+            cur = clock();
+            CGreedy_MRIM(G, R, T, k, t, seeds);
+            cout <<  "CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
+            cout << " value = " << R_judge.self_inf_cal_multi(seeds) << endl;
+        }
+        for(int t = 1; t <= 16; t *= 2) {
+            seeds.clear();
+            cur = clock();
+            CGreedy_PM_MRIM(G, R, T, k, t, seeds);
+            cout <<  "CG-PM t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
+            cout << " value = " << R_judge.self_inf_cal_multi(seeds) << endl;
+        }
+    }
 
     return 0;
 }

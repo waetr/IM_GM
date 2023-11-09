@@ -45,13 +45,13 @@ void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 
     delete[] coveredNum_tmp;
 }
 
-double M_calc_bound(Graph &G, int64 T, int64 k, MultiRRContainer &RRI, std::vector<double> &q_R) {
+double calc_bound_MRIM(Graph &G, int64 T, int64 k, MultiRRContainer &RRI, std::vector<double> &q_R) {
     double sum = 0;
     std::vector<std::vector<double>> value(T);
     for (int i = 0; i < T; i++) {
         for (int j = 0; j < G.n; ++j) {
             double value_v = 0;
-            for (long rr: RRI.covered[i * G.n + j]) {
+            for (auto rr: RRI.covered[i * G.n + j]) {
                 value_v += q_R[rr];
             }
             value[i].push_back(value_v);
@@ -64,46 +64,7 @@ double M_calc_bound(Graph &G, int64 T, int64 k, MultiRRContainer &RRI, std::vect
     return sum;
 }
 
-void M_swap_rounding(Graph &G, int64 T, std::vector<std::vector<bi_node>> &bases, std::vector<bi_node> &seeds) {
-    std::vector<std::vector<bool>> pos(T);
-    std::vector<std::vector<bool>> pos1(T);
-    for (int i = 0; i < T; i++) {
-        pos[i].resize(G.n, false);
-        pos1[i].resize(G.n, false);
-    }
-    for (auto &i: bases[0]) {
-        pos[i.first][i.second] = true;
-    }
-    for (int i = 0; i < bases.size() - 1; ++i) {
-        for (int j = 0; j < pos1.size(); j++) {
-            for (int k = 0; k < pos1[j].size(); ++k) {
-                pos1[j][k] = false;
-            }
-        }
-
-        for (int j = 0; j < bases[i + 1].size(); ++j) {
-            pos1[bases[i + 1][j].first][bases[i + 1][j].second] = true;
-        }
-        for (int j = 0; j < pos.size(); ++j) {
-            int x = 0, y = 0;
-            while (x < pos[j].size() && y < pos[j].size()) {
-                while (x < pos[j].size() && !(pos[j][x] == true && pos1[j][x] == false)) x++;
-                while (y < pos[j].size() && !(pos[j][y] == false && pos1[j][y] == true)) y++;
-                if (x == pos[j].size() || y == pos[j].size()) break;
-                double xx = random_real();
-                if (xx < (double) (i + 1) / (i + 2)) pos1[j][y] = false, pos1[j][x] = true;
-                else pos[j][x] = false, pos[j][y] = true;
-            }
-        }
-    }
-    for (int i = 0; i < pos.size(); ++i) {
-        for (int j = 0; j < pos[i].size(); ++j) {
-            if (pos[i][j]) seeds.emplace_back(j, i);
-        }
-    }
-}
-
-void M_swap_rounding1(Graph &G, int64 T, std::vector<std::vector<bi_node>> &bases, std::vector<int64> &frac_x,
+void rounding_MRIM(Graph &G, int64 T, std::vector<std::vector<bi_node>> &bases, std::vector<int64> &frac_x,
                       std::vector<double> &q_R, MultiRRContainer &RRI, int64 t_max, std::vector<bi_node> &seeds) {
     std::vector<std::vector<bool>> pos(T);
     std::vector<std::vector<bool>> pos1(T);
@@ -126,23 +87,43 @@ void M_swap_rounding1(Graph &G, int64 T, std::vector<std::vector<bi_node>> &base
             pos1[bases[i + 1][j].first][bases[i + 1][j].second] = true;
         }
         for (int j = 0; j < pos.size(); ++j) {
+            //j: round
             int x = 0, y = 0;
             while (x < pos[j].size() && y < pos[j].size()) {
                 while (x < pos[j].size() && !(pos[j][x] == true && pos1[j][x] == false)) x++;
                 while (y < pos[j].size() && !(pos[j][y] == false && pos1[j][y] == true)) y++;
                 if (x == pos[j].size() || y == pos[j].size()) break;
+                //x, y: node
 
                 // round x and y
                 double dx = 0, dy = 0;
-                for (long rr: RRI.covered[G.n * i +x]) {
+                for (auto rr: RRI.covered[G.n * j + x]) {
                     dx += q_R[rr];
                 }
-                dx *= (double) t_max / (double) (t_max - frac_x[G.n * i + x]);
+                dx *= (double) t_max / (double) (t_max - frac_x[G.n * j + x]);
+                for (auto rr: RRI.covered[G.n * j + y]) {
+                    dy += q_R[rr];
+                }
+                dy *= (double) t_max / (double) (t_max - frac_x[G.n * j + y]);
+                int x_ = x, y_ = y, swap_flag = 1;
+                if (dx < dy) { //|| (dx == dy && random_real() > (double) (i + 1) / (i + 2))
+                    std::swap(x_, y_);
+                    pos[j][x] = false, pos[j][y] = true;
+                    swap_flag = i + 1;
+                } else {
+                    pos1[j][y] = false, pos1[j][x] = true;
+                }
+                for (auto rr: RRI.covered[G.n * j + y_]) {
+                    q_R[rr] *= (double) (t_max - frac_x[G.n * j + y_] + swap_flag) /
+                            (double) (t_max - frac_x[G.n * j + y_]);
+                }
+                frac_x[G.n * j + y_] -= swap_flag;
+                for (auto rr: RRI.covered[G.n * j + x_]) {
+                    q_R[rr] *= (double) (t_max - frac_x[G.n * j + x_] - swap_flag) /
+                            (double) (t_max - frac_x[G.n * j + x_]);
+                }
+                frac_x[G.n * j + x_] += swap_flag;
                 //end of rounding x and y
-
-                double xx = random_real();
-                if (xx < (double) (i + 1) / (i + 2)) pos1[j][y] = false, pos1[j][x] = true;
-                else pos[j][x] = false, pos[j][y] = true;
             }
         }
     }
@@ -153,66 +134,7 @@ void M_swap_rounding1(Graph &G, int64 T, std::vector<std::vector<bi_node>> &base
     }
 }
 
-void M_advanced_rounding(Graph &G, int64 T, std::vector<int64> &frac_x,
-                         std::vector<double> &q_R, MultiRRContainer &RRI, int64 t_max, std::vector<bi_node> &seeds) {
-    for (int i = 0; i < T; i++) {
-        std::vector<std::pair<double, int>> gradient;
-        for (int j = 0; j < G.n; ++j) {
-            if (frac_x[G.n * i + j] > 0 && frac_x[G.n * i + j] < t_max) {
-                gradient.emplace_back(0, j);
-            }
-        }
-        while (!gradient.empty()) {
-            for (int j = 0; j < gradient.size(); ++j) {
-                double dx = 0;
-                for (long rr: RRI.covered[G.n * i + gradient[j].second]) {
-                    dx += q_R[rr];
-                }
-                dx *= (double) t_max / (double) (t_max - frac_x[G.n * i + gradient[j].second]);
-                gradient[j].first = dx;
-            }
-            int x = gradient[gradient.size() - 1].second, y = gradient[gradient.size() - 2].second;
-            if (t_max - frac_x[G.n * i + x] > frac_x[G.n * i + y]) {
-                for (long rr: RRI.covered[G.n * i + x]) {
-                    q_R[rr] *= (double) (t_max - frac_x[G.n * i + x] - frac_x[G.n * i + y]) /
-                               (double) (t_max - frac_x[G.n * i + x]);
-                }
-                frac_x[G.n * i + x] += frac_x[G.n * i + y];
-                for (long rr: RRI.covered[G.n * i + y]) {
-                    q_R[rr] *= (double) t_max / (double) (t_max - frac_x[G.n * i + y]);
-                }
-                frac_x[G.n * i + y] = 0;
-            } else {
-                for (long rr: RRI.covered[G.n * i + y]) {
-                    q_R[rr] *= (double) (t_max - (frac_x[G.n * i + x] + frac_x[G.n * i + y] - t_max)) /
-                               (double) (t_max - frac_x[G.n * i + y]);
-                }
-                frac_x[G.n * i + y] = frac_x[G.n * i + x] + frac_x[G.n * i + y] - t_max;
-                for (long rr: RRI.covered[G.n * i + x]) {
-                    q_R[rr] = 0;
-                }
-                frac_x[G.n * i + x] = t_max;
-            }
-            if (frac_x[G.n * i + y] == 0) {
-                std::swap(gradient[gradient.size() - 2], gradient[gradient.size() - 1]);
-                gradient.pop_back();
-            }
-            if (frac_x[G.n * i + x] == t_max) {
-                gradient.pop_back();
-            }
-        }
-    }
-
-    for (int j = 0; j < T; j++) {
-        for (int l = 0; l < G.n; l++) {
-            if (frac_x[G.n * j + l] == t_max) seeds.emplace_back(l, j);
-        }
-    }
-}
-
-double
-M_CGreedy(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds,
-          double delta) {
+double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -220,13 +142,15 @@ M_CGreedy(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::v
     double Fx = 0;
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
 
-    HeapArray<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>> Q{};
-    Q.val = new std::pair<double, int64>[G.n * T];
-    Q.ids = new std::pair<unsigned, std::pair<unsigned, unsigned >>[G.n * T];
+    //priority queue for lazy sampling
+    HeapArray<CMax<double, std::pair<std::pair<unsigned, unsigned >, unsigned>>> Q{};
+    Q.val = new double[G.n * T];
+    Q.ids = new std::pair<std::pair<unsigned, unsigned>, unsigned>[G.n * T];
     Q.k = 0;
 
     std::vector<std::vector<bi_node>> bases(t_max);
 
+    double cur = clock();
     for (int t = 1; t <= t_max; t++) {
         Q.k = 0;
         for (int i = 0; i < T; i++) {
@@ -237,37 +161,24 @@ M_CGreedy(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::v
                 }
                 value_v *= (double) t_max / (double) (t_max - frac_x[G.n * i + j]);
                 Q.k++;
-                heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                               Q.val,
-                                                                                                               Q.ids,
-                                                                                                               std::make_pair(
-                                                                                                                       value_v,
-                                                                                                                       i *
-                                                                                                                       G.n +
-                                                                                                                       j),
-                                                                                                               std::make_pair(
-                                                                                                                       0,
-                                                                                                                       std::make_pair(
-                                                                                                                               i,
-                                                                                                                               j)));
+                heap_push<CMax<double, std::pair<std::pair<unsigned, unsigned >, unsigned>>>(Q.k,Q.val,Q.ids,
+                                                                                             value_v, std::make_pair(std::make_pair(i,j),0));
             }
         }
         std::vector<int64> cardinality(T, 0);
         for (int i = 0; i < T * k; i++) {
             while (Q.k != 0) {
                 //j: round l:node
-                int64 j = Q.ids[0].second.first;
-                int64 l = Q.ids[0].second.second;
-                int64 it_round = Q.ids[0].first;
-                heap_pop<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                              Q.val,
-                                                                                                              Q.ids);
+                int64 j = Q.ids[0].first.first;
+                int64 l = Q.ids[0].first.second;
+                int64 it_round = Q.ids[0].second;
+                heap_pop<CMax<double, std::pair<std::pair<unsigned, unsigned >, unsigned>>>(Q.k,Q.val,Q.ids);
                 Q.k -= 1;
                 if (cardinality[j] >= k) continue;
                 if (it_round == i) {
                     //choose
                     cardinality[j] += 1;
-                    for (long rr: RRI.covered[G.n * j + l]) {
+                    for (auto rr: RRI.covered[G.n * j + l]) {
                         double q_R_old = q_R[rr];
                         q_R[rr] *= (double) (t_max - frac_x[G.n * j + l] - 1) /
                                    (double) (t_max - frac_x[G.n * j + l]);
@@ -278,66 +189,45 @@ M_CGreedy(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::v
                     break;
                 } else {
                     double value_v = 0;
-                    for (long rr: RRI.covered[G.n * j + l]) {
+                    for (auto rr: RRI.covered[G.n * j + l]) {
                         value_v += q_R[rr];
                     }
                     value_v *= (double) t_max / (double) (t_max - frac_x[G.n * j + l]);
                     Q.k++;
-                    heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                                   Q.val,
-                                                                                                                   Q.ids,
-                                                                                                                   std::make_pair(
-                                                                                                                           value_v,
-                                                                                                                           j *
-                                                                                                                           G.n +
-                                                                                                                           l),
-                                                                                                                   std::make_pair(
-                                                                                                                           i,
-                                                                                                                           std::make_pair(
-                                                                                                                                   j,
-                                                                                                                                   l)));
+                    heap_push<CMax<double, std::pair<std::pair<unsigned, unsigned>, unsigned>>>(Q.k,Q.val,Q.ids,value_v,std::make_pair(std::make_pair(j,l),i));
                 }
             }
         }
     }
+    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
+    double tight_bound = Fx + calc_bound_MRIM(G, T, k, RRI, q_R);
 
-    std::vector<bi_node> temp_seeds;
-    int64 coverage = 0;
-    int64 D = ceil(32.0 * log(1.0 / delta) * t_max * t_max / (G.n * Fx / RRI.numOfRRsets()));
-
-    for (int i = 0; i < D; ++i) {
-        temp_seeds.clear();
-        M_swap_rounding(G, T, bases, temp_seeds);
-        int64 temp_coverage = RRI.self_inf_cal_multi(temp_seeds);
-        if (temp_coverage > coverage) {
-            bi_seeds.assign(temp_seeds.begin(), temp_seeds.end());
-            coverage = temp_coverage;
-        }
-    }
-
+    rounding_MRIM(G, T, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     delete[] Q.val;
     delete[] Q.ids;
     return tight_bound;
 }
 
+double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
 
-double
-M_CGreedy_Partition(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
     //temporary varible
     double Fx = 0;
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
+
     //priority queue for lazy sampling
-    auto Q = new HeapArray<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>[T];
+    auto Q = new HeapArray<CMax<double, std::pair<unsigned, unsigned >>>[T];
     for (size_t i = 0; i < T; i++) {
-        Q[i].val = new std::pair<double, int64>[G.n];
+        Q[i].val = new double[G.n];
         Q[i].ids = new std::pair<unsigned, unsigned>[G.n];
         Q[i].k = 0;
     }
 
+    std::vector<std::vector<bi_node>> bases(t_max);
+
+    double cur = clock();
     for (int t = 1; t <= t_max; t++) {
         for (int i = 0; i < T; i++) {
             Q[i].k = 0;
@@ -348,56 +238,50 @@ M_CGreedy_Partition(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
                 }
                 value_v *= (double) t_max / (double) (t_max - frac_x[i * G.n + j]);
                 Q[i].k++;
-                heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[i].k, Q[i].val, Q[i].ids,
-                                                                                         std::make_pair(value_v,
-                                                                                                        i * G.n + j),
-                                                                                         std::make_pair(0, j));
+                heap_push<CMax<double, std::pair<unsigned, unsigned >>>(Q[i].k, Q[i].val, Q[i].ids,
+                                                                                         value_v,
+                                                                                         std::make_pair(j, 0));
             }
         }
         std::vector<int64> cardinality(T, 0);
         for (int i = 0; i < T * k; i++) {
-            int round = i % T;
-            if (cardinality[round] >= k) continue;
-            while (Q[round].k != 0) {
-                int64 u = Q[round].ids[0].second;
-                int64 it_round = Q[round].ids[0].first;
-                heap_pop<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                        Q[round].ids);
-                Q[round].k -= 1;
+            int64 j = i % T;
+            if (cardinality[j] >= k) continue;
+            while (Q[j].k != 0) {
+                //j: round l:node
+                int64 l = Q[j].ids[0].first;
+                int64 it_round = Q[j].ids[0].second;
+                heap_pop<CMax<double, std::pair<unsigned, unsigned >>>(Q[j].k,Q[j].val,Q[j].ids);
+                Q[j].k -= 1;
                 if (it_round == i) {
                     //choose
-                    cardinality[round] += 1;
-                    for (long rr: RRI.covered[round * G.n + u]) {
+                    cardinality[j] += 1;
+                    for (auto rr: RRI.covered[G.n * j + l]) {
                         double q_R_old = q_R[rr];
-                        q_R[rr] *= (double) (t_max - frac_x[round * G.n + u] - 1) /
-                                   (double) (t_max - frac_x[round * G.n + u]);
+                        q_R[rr] *= (double) (t_max - frac_x[G.n * j + l] - 1) /
+                                   (double) (t_max - frac_x[G.n * j + l]);
                         Fx += q_R_old - q_R[rr];
                     }
-                    frac_x[round * G.n + u] += 1;
+                    frac_x[G.n * j + l] += 1;
+                    bases[t - 1].emplace_back(j, l);
                     break;
                 } else {
                     double value_v = 0;
-                    for (long rr: RRI.covered[round * G.n + u]) {
+                    for (auto rr: RRI.covered[G.n * j + l]) {
                         value_v += q_R[rr];
                     }
-                    value_v *= (double) t_max / (double) (t_max - frac_x[round * G.n + u]);
-                    Q[round].k++;
-                    heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                             Q[round].ids,
-                                                                                             std::make_pair(value_v,
-                                                                                                            round *
-                                                                                                            G.n + u),
-                                                                                             std::make_pair(i, u));
+                    value_v *= (double) t_max / (double) (t_max - frac_x[G.n * j + l]);
+                    Q[j].k++;
+                    heap_push<CMax<double, std::pair<unsigned, unsigned >>>(Q[j].k,Q[j].val,Q[j].ids,value_v,std::make_pair(l,i));
                 }
             }
         }
     }
+    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
+    double tight_bound = Fx + calc_bound_MRIM(G, T, k, RRI, q_R);
 
-    //advanced-rounding
-    M_advanced_rounding(G, T, frac_x, q_R, RRI, t_max, bi_seeds);
-
+    rounding_MRIM(G, T, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     for (size_t i = 0; i < T; i++) {
         delete[] Q[i].val;
         delete[] Q[i].ids;
@@ -406,149 +290,6 @@ M_CGreedy_Partition(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
     return tight_bound;
 }
 
-double
-M_CGreedy_Partition1(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
-    //the fractional solution (use integers to avoid float error)
-    std::vector<int64> frac_x(G.n * T, 0);
-    //temporary varible
-    double Fx = 0;
-    std::vector<double> q_R(RRI.numOfRRsets(), 1);
-    //priority queue for lazy sampling
-    auto Q = new HeapArray<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>[T];
-    for (size_t i = 0; i < T; i++) {
-        Q[i].val = new std::pair<double, int64>[G.n];
-        Q[i].ids = new std::pair<unsigned, unsigned>[G.n];
-        Q[i].k = 0;
-    }
-
-    for (int t = 1; t <= t_max; t++) {
-        for (int i = 0; i < T; i++) {
-            Q[i].k = 0;
-            for (int j = 0; j < G.n; j++) {
-                double value_v = 0;
-                for (auto rr: RRI.covered[i * G.n + j]) {
-                    value_v += q_R[rr];
-                }
-                value_v *= (double) t_max / (double) (t_max - frac_x[i * G.n + j]);
-                Q[i].k++;
-                heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[i].k, Q[i].val, Q[i].ids,
-                                                                                         std::make_pair(value_v,
-                                                                                                        i * G.n + j),
-                                                                                         std::make_pair(0, j));
-            }
-        }
-        std::vector<int64> cardinality(T, 0);
-        for (int i = 0; i < T * k; i++) {
-            int round = i / k;
-            if (cardinality[round] >= k) continue;
-            while (Q[round].k != 0) {
-                int64 u = Q[round].ids[0].second;
-                int64 it_round = Q[round].ids[0].first;
-                heap_pop<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                        Q[round].ids);
-                Q[round].k -= 1;
-                if (it_round == i) {
-                    //choose
-                    cardinality[round] += 1;
-                    for (long rr: RRI.covered[round * G.n + u]) {
-                        double q_R_old = q_R[rr];
-                        q_R[rr] *= (double) (t_max - frac_x[round * G.n + u] - 1) /
-                                   (double) (t_max - frac_x[round * G.n + u]);
-                        Fx += q_R_old - q_R[rr];
-                    }
-                    frac_x[round * G.n + u] += 1;
-                    break;
-                } else {
-                    double value_v = 0;
-                    for (long rr: RRI.covered[round * G.n + u]) {
-                        value_v += q_R[rr];
-                    }
-                    value_v *= (double) t_max / (double) (t_max - frac_x[round * G.n + u]);
-                    Q[round].k++;
-                    heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                             Q[round].ids,
-                                                                                             std::make_pair(value_v,
-                                                                                                            round *
-                                                                                                            G.n + u),
-                                                                                             std::make_pair(i, u));
-                }
-            }
-        }
-    }
-
-    double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
-
-    //advanced-rounding
-    for (int i = 0; i < T; i++) {
-        std::vector<std::pair<double, int>> gradient;
-        for (int j = 0; j < G.n; ++j) {
-            if (frac_x[G.n * i + j] > 0 && frac_x[G.n * i + j] < t_max) {
-                gradient.emplace_back(0, j);
-            }
-        }
-        while (!gradient.empty()) {
-            for (int j = 0; j < gradient.size(); ++j) {
-                double dx = 0;
-                for (long rr: RRI.covered[G.n * i + gradient[j].second]) {
-                    dx += q_R[rr];
-                }
-                dx *= (double) t_max / (double) (t_max - frac_x[G.n * i + gradient[j].second]);
-                gradient[j].first = dx;
-            }
-            std::sort(gradient.begin(), gradient.end());
-            int x = gradient[gradient.size() - 1].second, y = gradient[0].second;
-            if (t_max - frac_x[G.n * i + x] > frac_x[G.n * i + y]) {
-                for (long rr: RRI.covered[G.n * i + x]) {
-                    double q_R_old = q_R[rr];
-                    q_R[rr] *= (double) (t_max - frac_x[G.n * i + x] - frac_x[G.n * i + y]) /
-                               (double) (t_max - frac_x[G.n * i + x]);
-                    Fx += q_R_old - q_R[rr];
-                }
-                frac_x[G.n * i + x] += frac_x[G.n * i + y];
-                for (long rr: RRI.covered[G.n * i + y]) {
-                    double q_R_old = q_R[rr];
-                    q_R[rr] *= (double) t_max / (double) (t_max - frac_x[G.n * i + y]);
-                    Fx += q_R_old - q_R[rr];
-                }
-                frac_x[G.n * i + y] = 0;
-            } else {
-                for (long rr: RRI.covered[G.n * i + y]) {
-                    double q_R_old = q_R[rr];
-                    q_R[rr] *= (double) (t_max - (frac_x[G.n * i + x] + frac_x[G.n * i + y] - t_max)) /
-                               (double) (t_max - frac_x[G.n * i + y]);
-                    Fx += q_R_old - q_R[rr];
-                }
-                frac_x[G.n * i + y] = frac_x[G.n * i + x] + frac_x[G.n * i + y] - t_max;
-                for (long rr: RRI.covered[G.n * i + x]) {
-                    double q_R_old = q_R[rr];
-                    q_R[rr] = 0;
-                    Fx += q_R_old;
-                }
-                frac_x[G.n * i + x] = t_max;
-            }
-            if (frac_x[G.n * i + x] == t_max) {
-                gradient.pop_back();
-            }
-            if (frac_x[G.n * i + y] == 0) {
-                std::swap(gradient[0], gradient[gradient.size() - 1]);
-                gradient.pop_back();
-            }
-        }
-    }
-
-    for (int j = 0; j < T; j++) {
-        for (int l = 0; l < G.n; l++) {
-            if (frac_x[G.n * j + l] == t_max) bi_seeds.emplace_back(l, j);
-        }
-    }
-
-    for (size_t i = 0; i < T; i++) {
-        delete[] Q[i].val;
-        delete[] Q[i].ids;
-    }
-    delete[] Q;
-    return tight_bound;
-}
 
 double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
     double iota = 1 + log(2) / log(G.n), eps0 = eps * sqrt(2);
@@ -562,21 +303,20 @@ double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &se
     auto start_time = std::chrono::high_resolution_clock::now();
 
     MultiRRContainer R(G, T);
-//    for (int i = 1; i <= i_max; ++i) {
-//        seeds.clear();
-//        R.resize(G, (int64) theta);
-//        Cross_Round_Node_Selection(G, R, T, k, seeds);
+    for (int i = 1; i <= i_max; ++i) {
+        seeds.clear();
+        R.resize(G, (int64) theta);
+        Cross_Round_Node_Selection(G, R, T, k, seeds);
 //        std::cout << "theta:" << theta << " inf_call:" << 1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() << " pow:"
 //                  << (1.0 + eps0) / pow(2, i) << std::endl;
-//        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
-//            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
-//            break;
-//        }
-//        theta *= 2;
-//    }
+        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
+            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
+            break;
+        }
+        theta *= 2;
+    }
 //    std::cout << "final C=" << (int64) (lambda1 / LB) << "\n";
-//    R.resize(G, (int64) (lambda1 / LB));
-    R.resize(G, 1984);
+    R.resize(G, (int64) (lambda1 / LB));
     seeds.clear();
     Cross_Round_Node_Selection(G, R, T, k, seeds);
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -609,7 +349,7 @@ double CR_OPIM_Partition(Graph &G, int64 T, int64 k, double eps, std::vector<bi_
         std::cout << "i=" << i << "\n";
         seeds.clear();
         cur = clock();
-        double upperC = M_CGreedy(G, R1, T, k, a, seeds, delta);
+        double upperC = CGreedy_MRIM(G, R1, T, k, a, seeds);
         auto lowerC = (double) R2.self_inf_cal_multi(seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -684,203 +424,6 @@ double effic_inf_multi(Graph &graph, std::vector<bi_node> &S, int64 T) {
         }
     }
     return 1.0 * numCoverd * graph.n / numHyperEdge;
-}
-
-double
-M_CGreedy1(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds,std::vector<bi_node> &bi_seeds1,
-          double delta) {
-
-    //the fractional solution (use integers to avoid float error)
-    std::vector<int64> frac_x(G.n * T, 0);
-    //temporary varible
-    double Fx = 0;
-    std::vector<double> q_R(RRI.numOfRRsets(), 1);
-
-    HeapArray<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>> Q{};
-    Q.val = new std::pair<double, int64>[G.n * T];
-    Q.ids = new std::pair<unsigned, std::pair<unsigned, unsigned >>[G.n * T];
-    Q.k = 0;
-
-    std::vector<std::vector<bi_node>> bases(t_max);
-
-    for (int t = 1; t <= t_max; t++) {
-        Q.k = 0;
-        for (int i = 0; i < T; i++) {
-            for (int j = 0; j < G.n; j++) {
-                double value_v = 0;
-                for (long rr: RRI.covered[G.n * i + j]) {
-                    value_v += q_R[rr];
-                }
-                value_v *= (double) t_max / (double) (t_max - frac_x[G.n * i + j]);
-                Q.k++;
-                heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                               Q.val,
-                                                                                                               Q.ids,
-                                                                                                               std::make_pair(
-                                                                                                                       value_v,
-                                                                                                                       i *
-                                                                                                                       G.n +
-                                                                                                                       j),
-                                                                                                               std::make_pair(
-                                                                                                                       0,
-                                                                                                                       std::make_pair(
-                                                                                                                               i,
-                                                                                                                               j)));
-            }
-        }
-        std::vector<int64> cardinality(T, 0);
-        for (int i = 0; i < T * k; i++) {
-            while (Q.k != 0) {
-                //j: round l:node
-                int64 j = Q.ids[0].second.first;
-                int64 l = Q.ids[0].second.second;
-                int64 it_round = Q.ids[0].first;
-                heap_pop<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                              Q.val,
-                                                                                                              Q.ids);
-                Q.k -= 1;
-                if (cardinality[j] >= k) continue;
-                if (it_round == i) {
-                    //choose
-                    cardinality[j] += 1;
-                    for (long rr: RRI.covered[G.n * j + l]) {
-                        double q_R_old = q_R[rr];
-                        q_R[rr] *= (double) (t_max - frac_x[G.n * j + l] - 1) /
-                                   (double) (t_max - frac_x[G.n * j + l]);
-                        Fx += q_R_old - q_R[rr];
-                    }
-                    frac_x[G.n * j + l] += 1;
-                    bases[t - 1].emplace_back(j, l);
-                    break;
-                } else {
-                    double value_v = 0;
-                    for (long rr: RRI.covered[G.n * j + l]) {
-                        value_v += q_R[rr];
-                    }
-                    value_v *= (double) t_max / (double) (t_max - frac_x[G.n * j + l]);
-                    Q.k++;
-                    heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, std::pair<unsigned, unsigned >>>>(Q.k,
-                                                                                                                   Q.val,
-                                                                                                                   Q.ids,
-                                                                                                                   std::make_pair(
-                                                                                                                           value_v,
-                                                                                                                           j *
-                                                                                                                           G.n +
-                                                                                                                           l),
-                                                                                                                   std::make_pair(
-                                                                                                                           i,
-                                                                                                                           std::make_pair(
-                                                                                                                                   j,
-                                                                                                                                   l)));
-                }
-            }
-        }
-    }
-
-    double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
-
-    std::vector<bi_node> temp_seeds;
-    int64 coverage = 0;
-    int64 D = ceil(32.0 * log(1.0 / delta) * t_max * t_max / (G.n * Fx / RRI.numOfRRsets()));
-    std::cout << "[before round:" << Fx << "]";
-    for (int i = 0; i < D; ++i) {
-        temp_seeds.clear();
-        M_swap_rounding(G, T, bases, temp_seeds);
-        int64 temp_coverage = RRI.self_inf_cal_multi(temp_seeds);
-        if (temp_coverage > coverage) {
-            bi_seeds.assign(temp_seeds.begin(), temp_seeds.end());
-            coverage = temp_coverage;
-        }
-    }
-    M_advanced_rounding(G, T, frac_x, q_R, RRI, t_max, bi_seeds1);
-    delete[] Q.val;
-    delete[] Q.ids;
-    return tight_bound;
-}
-
-
-double
-M_CGreedy_Partitionx(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds,std::vector<bi_node> &bi_seeds1) {
-    //the fractional solution (use integers to avoid float error)
-    std::vector<int64> frac_x(G.n * T, 0);
-    //temporary varible
-    double Fx = 0;
-    std::vector<double> q_R(RRI.numOfRRsets(), 1);
-    //priority queue for lazy sampling
-    auto Q = new HeapArray<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>[T];
-    for (size_t i = 0; i < T; i++) {
-        Q[i].val = new std::pair<double, int64>[G.n];
-        Q[i].ids = new std::pair<unsigned, unsigned>[G.n];
-        Q[i].k = 0;
-    }
-    std::vector<std::vector<bi_node>> bases(t_max);
-    for (int t = 1; t <= t_max; t++) {
-        for (int i = 0; i < T; i++) {
-            Q[i].k = 0;
-            for (int j = 0; j < G.n; j++) {
-                double value_v = 0;
-                for (auto rr: RRI.covered[i * G.n + j]) {
-                    value_v += q_R[rr];
-                }
-                value_v *= (double) t_max / (double) (t_max - frac_x[i * G.n + j]);
-                Q[i].k++;
-                heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[i].k, Q[i].val, Q[i].ids,
-                                                                                         std::make_pair(value_v,
-                                                                                                        i * G.n + j),
-                                                                                         std::make_pair(0, j));
-            }
-        }
-        std::vector<int64> cardinality(T, 0);
-        for (int i = 0; i < T * k; i++) {
-            int round = i % T;
-            if (cardinality[round] >= k) continue;
-            while (Q[round].k != 0) {
-                int64 u = Q[round].ids[0].second;
-                int64 it_round = Q[round].ids[0].first;
-                heap_pop<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                        Q[round].ids);
-                Q[round].k -= 1;
-                if (it_round == i) {
-                    //choose
-                    cardinality[round] += 1;
-                    for (long rr: RRI.covered[round * G.n + u]) {
-                        double q_R_old = q_R[rr];
-                        q_R[rr] *= (double) (t_max - frac_x[round * G.n + u] - 1) /
-                                   (double) (t_max - frac_x[round * G.n + u]);
-                        Fx += q_R_old - q_R[rr];
-                    }
-                    frac_x[round * G.n + u] += 1;
-                    bases[t - 1].emplace_back(round, u);
-                    break;
-                } else {
-                    double value_v = 0;
-                    for (long rr: RRI.covered[round * G.n + u]) {
-                        value_v += q_R[rr];
-                    }
-                    value_v *= (double) t_max / (double) (t_max - frac_x[round * G.n + u]);
-                    Q[round].k++;
-                    heap_push<CMax<std::pair<double, int64>, std::pair<unsigned, unsigned>>>(Q[round].k, Q[round].val,
-                                                                                             Q[round].ids,
-                                                                                             std::make_pair(value_v,
-                                                                                                            round *
-                                                                                                            G.n + u),
-                                                                                             std::make_pair(i, u));
-                }
-            }
-        }
-    }
-
-    double tight_bound = Fx + M_calc_bound(G, T, k, RRI, q_R);
-    M_swap_rounding(G, T, bases, bi_seeds1);
-    //advanced-rounding
-    M_advanced_rounding(G, T, frac_x, q_R, RRI, t_max, bi_seeds);
-
-    for (size_t i = 0; i < T; i++) {
-        delete[] Q[i].val;
-        delete[] Q[i].ids;
-    }
-    delete[] Q;
-    return tight_bound;
 }
 
 #endif //EXP_MRIM_H
