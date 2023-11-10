@@ -21,7 +21,7 @@ double calc_bound_AA(Graph &G, int64 k_N, int64 k_E, VRRPath &RRI, std::vector<d
         value_N.emplace_back(value_v);
     }
     for (int i = 0; i < G.n; ++i) {
-        for (int j = 0; j < G.deg_out[i]; ++j) {
+        for (int j = 0; j < G.deg_in[i]; ++j) {
             double value_v = 0;
             for (auto rr: RRI.edge_covered[i][j]) {
                 value_v += q_R[rr];
@@ -45,8 +45,8 @@ void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
     std::vector<bool> pos_N(G.n, false), pos1_N(G.n, false);
     std::vector<std::vector<bool>> pos_E(G.n), pos1_E(G.n);
     for (int i = 0; i < G.n; ++i) {
-        pos_E[i].resize(G.deg_out[i], false);
-        pos1_E[i].resize(G.deg_out[i], false);
+        pos_E[i].resize(G.deg_in[i], false);
+        pos1_E[i].resize(G.deg_in[i], false);
     }
     for (auto &i: bases[0]) {
         //first: node second: edge-idx
@@ -101,7 +101,7 @@ void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
         while(true) {
             for(; xi < G.n; xi++) {
                 bool flag = false;
-                for (; xj < G.deg_out[xi]; ++xj) {
+                for (; xj < G.deg_in[xi]; ++xj) {
                     if (pos_E[xi][xj] && !pos1_E[xi][xj]) {
                         flag = true;
                         break;
@@ -112,7 +112,7 @@ void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
             }
             for(; yi < G.n; yi++) {
                 bool flag = false;
-                for (; yj < G.deg_out[yi]; ++yj) {
+                for (; yj < G.deg_in[yi]; ++yj) {
                     if (!pos_E[yi][yj] && pos1_E[yi][yj]) {
                         flag = true;
                         break;
@@ -169,7 +169,7 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_N(G.n, 0);
     std::vector<std::vector<int64>> frac_E(G.n);
-    for (int i = 0; i < G.n; ++i) frac_E[i].resize(G.deg_out[i]);
+    for (int i = 0; i < G.n; ++i) frac_E[i].resize(G.deg_in[i]);
     //temporary varible
     double Fx = 0;
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
@@ -185,6 +185,7 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
     for (int t = 1; t <= t_max; t++) {
         Q.k = 0;
         for (int i = 0; i < G.n; i++) {
+            if (RRI.excludedNodes[i]) continue; //is seed
             double value_v = 0;
             for (auto rr: RRI.covered[i]) {
                 value_v += q_R[rr];
@@ -194,7 +195,7 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
             heap_push<CMax<double, std::pair<std::pair<unsigned, int>, unsigned>>>(Q.k, Q.val, Q.ids,
                                                                                         value_v, std::make_pair(
                             std::make_pair(i, -1), 0));
-            for(int j = 0; j < G.deg_out[i]; j++) {
+            for(int j = 0; j < G.deg_in[i]; j++) {
                 value_v = 0;
                 for (auto rr: RRI.edge_covered[i][j]) {
                     value_v += q_R[rr];

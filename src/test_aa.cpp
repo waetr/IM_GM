@@ -24,7 +24,7 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < 50; ++i) S.emplace_back(degree_order[i].second);
 
     VRRPath R_judge(G, S);
-    R_judge.resize(G, 100000);
+    R_judge.resize(G, 200000);
 
     VRRPath R(G, S);
     R.resize(G, 50);
@@ -34,7 +34,7 @@ int main(int argc, char const *argv[]) {
     for (int i = 1; i <= 10; ++i) {
         R.resize(G, R.numOfRRsets() * 2);
         cout << "# of RR sets = " << R.numOfRRsets() << endl;
-        for(int t = 1; t <= 4; t *= 2) {
+        for(int t = 1; t <= 8; t *= 2) {
             seeds.clear();
             cur = clock();
             CGreedy_AA(G, R, k_N, k_T, t, seeds);

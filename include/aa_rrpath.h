@@ -8,15 +8,13 @@
 
 
 class VRRPath {
-private:
+
+public:
     ///@brief temporary array for RI_Gen
     bool *DijkstraVis;
     size_t _sizeOfRRsets = 0;
     std::vector<bool> excludedNodes;
     size_t G_n;
-
-
-public:
     size_t R_size = 0;
 
     ///covered[u] marks which RI sets the node u is covered by
@@ -42,8 +40,8 @@ public:
         edge_covered = new std::vector<int64> *[G.n]();
         edge_coveredNum = new int64 *[G.n]();
         for (int i = 0; i < G.n; ++i) {
-            edge_covered[i] = new std::vector<int64>[G.deg_out[i]]();
-            edge_coveredNum[i] = new int64[G.deg_out[i]]();
+            edge_covered[i] = new std::vector<int64>[G.deg_in[i]]();
+            edge_coveredNum[i] = new int64[G.deg_in[i]]();
         }
     }
 
@@ -80,12 +78,12 @@ public:
  * @param uStart : the starting nodes of this RI/FI set
  * @param RR : returns the RI/FI set as an passed parameter
  */
-    void RI_Gen(Graph &graph, std::vector<int64> &uStart, std::vector<int64> &RR, std::vector<int64> &RR_edge) {
-        assert(RR.empty());
+    bool RI_Gen(Graph &graph, int64 u, std::vector<int64> &RR, std::vector<int64> &RR_edge) {
+        bool flag = false;
         auto *edge_list = &graph.gT;
-        auto u = uStart[0];
-        RR.emplace_back(u);
-        while (true) {
+        while (graph.deg_in[u] > 0) {
+            RR.emplace_back(u);
+            DijkstraVis[u] = true;
             std::vector<int64> in_neighbours;
             std::vector<double> weights;
             for (auto &edgeT: (*edge_list)[u]) {
@@ -96,15 +94,18 @@ public:
             int64 sampled_num = dist(mt19937engine);
             int64 sampled_v = in_neighbours[sampled_num];
             RR_edge.emplace_back(sampled_num);
-            RR.emplace_back(sampled_v);
-            if (excludedNodes[sampled_v] || DijkstraVis[sampled_v]) break;
+            if (excludedNodes[sampled_v] || DijkstraVis[sampled_v]) {
+                if (excludedNodes[sampled_v]) flag = true;
+                break;
+            }
             u = sampled_v;
-            DijkstraVis[sampled_v] = true;
         }
 
         for (int64 v: RR) {
+            assert(DijkstraVis[v] == true);
             DijkstraVis[v] = false;
         }
+        return flag;
     }
 
 
@@ -115,15 +116,15 @@ public:
     void insertOneRandomRRset(Graph &G, std::uniform_int_distribution<int64> &uniformIntDistribution) {
         std::vector<int64> RR;
         std::vector<int64> RR_edge;
-        while (RR.empty() || !excludedNodes[RR[RR.size() - 1]]) {
+        bool success = false;
+        while (!success) {
             RR.clear();
             RR_edge.clear();
             int64 v = uniformIntDistribution(mt19937engine);
             while (excludedNodes[v]) v = uniformIntDistribution(mt19937engine);
-            std::vector<int64> vStart = {v};
-            RI_Gen(G, vStart, RR, RR_edge);
+            success = RI_Gen(G, v, RR, RR_edge);
         }
-        assert(RR_edge.size() == RR.size() - 1);
+        assert(RR_edge.size() == RR.size());
         R_size += 1;
         _sizeOfRRsets += RR.size();
         for (int64 u: RR) {
@@ -131,9 +132,8 @@ public:
             coveredNum[u]++;
         }
         for (int i = 0; i < RR_edge.size(); i++) {
-            int64 u = RR[i];
-            edge_covered[u][RR_edge[i]].emplace_back(R_size - 1);
-            edge_coveredNum[u][RR_edge[i]]++;
+            edge_covered[RR[i]][RR_edge[i]].emplace_back(R_size - 1);
+            edge_coveredNum[RR[i]][RR_edge[i]]++;
         }
     }
 
