@@ -17,8 +17,7 @@ private:
 
 
 public:
-    ///collection of RI sets
-    std::vector<std::vector<int64>> R;
+    size_t R_size = 0;
 
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered, **edge_covered;
@@ -65,7 +64,7 @@ public:
      * @return number of RR sets in this RR's container.
      */
     size_t numOfRRsets() const {
-        return R.size();
+        return R_size;
     }
 
     /*!
@@ -81,12 +80,12 @@ public:
  * @param uStart : the starting nodes of this RI/FI set
  * @param RR : returns the RI/FI set as an passed parameter
  */
-    void RI_Gen(Graph &graph, std::vector<int64> &uStart, std::vector<int64> &RR) {
+    void RI_Gen(Graph &graph, std::vector<int64> &uStart, std::vector<int64> &RR, std::vector<int64> &RR_edge) {
         assert(RR.empty());
         auto *edge_list = &graph.gT;
         auto u = uStart[0];
+        RR.emplace_back(u);
         while (true) {
-            RR.emplace_back(u);
             std::vector<int64> in_neighbours;
             std::vector<double> weights;
             for (auto &edgeT: (*edge_list)[u]) {
@@ -94,7 +93,10 @@ public:
                 weights.emplace_back(edgeT.p);
             }
             std::discrete_distribution<> dist(weights.begin(), weights.end());
-            int64 sampled_v = in_neighbours[dist(mt19937engine)];
+            int64 sampled_num = dist(mt19937engine);
+            int64 sampled_v = in_neighbours[sampled_num];
+            RR_edge.emplace_back(sampled_num);
+            RR.emplace_back(sampled_v);
             if (excludedNodes[sampled_v] || DijkstraVis[sampled_v]) break;
             u = sampled_v;
             DijkstraVis[sampled_v] = true;
@@ -112,18 +114,26 @@ public:
      */
     void insertOneRandomRRset(Graph &G, std::uniform_int_distribution<int64> &uniformIntDistribution) {
         std::vector<int64> RR;
+        std::vector<int64> RR_edge;
         while (RR.empty() || !excludedNodes[RR[RR.size() - 1]]) {
             RR.clear();
+            RR_edge.clear();
             int64 v = uniformIntDistribution(mt19937engine);
             while (excludedNodes[v]) v = uniformIntDistribution(mt19937engine);
             std::vector<int64> vStart = {v};
-            RI_Gen(G, vStart, RR);
+            RI_Gen(G, vStart, RR, RR_edge);
         }
-        R.emplace_back(RR);
+        assert(RR_edge.size() == RR.size() - 1);
+        R_size += 1;
         _sizeOfRRsets += RR.size();
         for (int64 u: RR) {
-            covered[u].emplace_back(R.size() - 1);
+            covered[u].emplace_back(R_size - 1);
             coveredNum[u]++;
+        }
+        for (int i = 0; i < RR_edge.size(); i++) {
+            int64 u = RR[i];
+            edge_covered[u][RR_edge[i]].emplace_back(R_size - 1);
+            edge_coveredNum[u][RR_edge[i]]++;
         }
     }
 
@@ -134,38 +144,24 @@ public:
      * @param size
      */
     void resize(Graph &G, size_t size) {
-        assert(R.size() <= size);
+        assert(R_size <= size);
         std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
-        while (R.size() < size) insertOneRandomRRset(G, uniformIntDistribution);
+        while (R_size < size) insertOneRandomRRset(G, uniformIntDistribution);
     }
 
-    /*!
-     * @brief calculate the coverage of vertex set S on these RR sets
-     * @param G : the graph
-     * @param vecSeed : vertex set S
-     * @return : the number of RR sets that are covered by S
-     */
-    int64 self_inf_cal(Graph &G, std::vector<int64> &vecSeed) const {
-        std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
-        for (auto seed: vecSeed) {
-            for (auto node: covered[seed]) {
-                vecBoolVst[node] = true;
-            }
-        }
-        return std::count(vecBoolVst.begin(), vecBoolVst.end(), true);
-    }
 
-    /*!
- * @brief calculate the coverage of vertex set S on these RR sets
- * @param G : the graph
- * @param vecSeed : vertex set S
- * @return : the number of RR sets that are covered by S
- */
-    int64 self_inf_cal(Graph &G, std::vector<bi_node> &vecSeed) const {
-        std::vector<bool> vecBoolVst = std::vector<bool>(R.size());
+    // seed.first = node;  seed.second = -1 ? NULL : (index of edge)
+    int64 self_inf_cal(std::vector<std::pair<int64, int64>> &vecSeed) const {
+        std::vector<bool> vecBoolVst = std::vector<bool>(R_size);
         for (auto seed: vecSeed) {
-            for (auto node: covered[seed.first]) {
-                vecBoolVst[node] = true;
+            if (seed.second == -1) {
+                for (auto node: covered[seed.first]) {
+                    vecBoolVst[node] = true;
+                }
+            } else {
+                for (auto node: edge_covered[seed.first][seed.second]) {
+                    vecBoolVst[node] = true;
+                }
             }
         }
         return std::count(vecBoolVst.begin(), vecBoolVst.end(), true);

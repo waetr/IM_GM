@@ -19,8 +19,7 @@ private:
 
 
 public:
-    ///collection of multi-RI sets
-    std::vector<std::pair<std::vector<int64>, int64>> multi_R;
+    size_t multi_R_size;
 
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered;
@@ -53,7 +52,7 @@ public:
      * @return number of RR sets in this RR's container.
      */
     size_t numOfRRsets() const {
-        return multi_R.size();
+        return multi_R_size;
     }
 
     /*!
@@ -118,10 +117,10 @@ public:
         RI_Gen(G, vStart, RR);
         _sizeOfRRsets += RR.size();
         for (int64 u: RR) {
-            covered[idx(this_round, u)].emplace_back(multi_R.size());
+            covered[idx(this_round, u)].emplace_back(multi_R_size);
             coveredNum[idx(this_round, u)]++;
         }
-        multi_R.emplace_back(RR, this_round);
+        multi_R_size++;
     }
 
 
@@ -131,10 +130,9 @@ public:
      * @param size
      */
     void resize(Graph &G, size_t size) {
-        assert(multi_R.size() <= size);
         std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
         std::uniform_int_distribution<int64> uniformIntDistribution1(0, round - 1);
-        while (multi_R.size() < size) insertOneRandomRRset(G, uniformIntDistribution, uniformIntDistribution1);
+        while (multi_R_size < size) insertOneRandomRRset(G, uniformIntDistribution, uniformIntDistribution1);
     }
 
     /*!
@@ -144,8 +142,7 @@ public:
 * @return : the number of RR sets that are covered by S
 */
     int64 self_inf_cal_multi(std::vector<bi_node> &vecSeed) const {
-        assert(!multi_R.empty());
-        std::vector<bool> vecBoolVst = std::vector<bool>(multi_R.size());
+        std::vector<bool> vecBoolVst = std::vector<bool>(multi_R_size);
         for (auto seed: vecSeed) {
             for (auto node: covered[idx(seed.second, seed.first)]) {
                 vecBoolVst[node] = true;
