@@ -15,7 +15,7 @@ public:
     size_t _sizeOfRRsets = 0;
     std::vector<bool> excludedNodes;
     size_t G_n;
-    size_t R_size = 0;
+    size_t R_size = 0, all_R_size = 0;
 
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered, **edge_covered;
@@ -102,7 +102,6 @@ public:
         }
 
         for (int64 v: RR) {
-            assert(DijkstraVis[v] == true);
             DijkstraVis[v] = false;
         }
         return flag;
@@ -117,15 +116,17 @@ public:
         std::vector<int64> RR;
         std::vector<int64> RR_edge;
         bool success = false;
+        int tot = 0;
         while (!success) {
+            tot++;
             RR.clear();
             RR_edge.clear();
             int64 v = uniformIntDistribution(mt19937engine);
             while (excludedNodes[v]) v = uniformIntDistribution(mt19937engine);
             success = RI_Gen(G, v, RR, RR_edge);
         }
-        assert(RR_edge.size() == RR.size());
         R_size += 1;
+        all_R_size += tot;
         _sizeOfRRsets += RR.size();
         for (int64 u: RR) {
             covered[u].emplace_back(R_size - 1);
