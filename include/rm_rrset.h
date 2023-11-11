@@ -19,7 +19,7 @@ private:
 
 
 public:
-    size_t multi_R_size;
+    size_t multi_R_size = 0;
 
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered;

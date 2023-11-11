@@ -9,41 +9,41 @@
 #include "mrim_rrset.h"
 
 
-void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
-    coveredNum_tmp = new int64[G.n * T];
-    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
-    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
-    std::vector<int> cardinalities(T, 0);
-    std::vector<bool> vis(G.n * T, false);
-    for (int i = 0; i < T * k; ++i) {
-        int64 covered_value = -1, u0, t0;
-        for (int t = 0; t < T; ++t) {
-            if (cardinalities[t] >= k) continue;
-            for (int u = 0; u < G.n; ++u) {
-                if (vis[t * G.n + u]) continue;
-                if (coveredNum_tmp[t * G.n + u] > covered_value ||
-                    (coveredNum_tmp[t * G.n + u] == covered_value && t * G.n + u > t0 * G.n + u0)) {
-                    covered_value = coveredNum_tmp[t * G.n + u];
-                    u0 = u;
-                    t0 = t;
-                }
-            }
-        }
-        vis[t0 * G.n + u0] = true;
-        seeds.emplace_back(u0, t0);
-        cardinalities[t0] += 1;
-        for (auto RRIndex: RRI.covered[t0 * G.n + u0]) {
-            if (RRSetCovered[RRIndex]) continue;
-            for (int t = 0; t < T; ++t) {
-                for (auto u: RRI.multi_R[RRIndex][t]) {
-                    coveredNum_tmp[t * G.n + u]--;
-                }
-            }
-            RRSetCovered[RRIndex] = true;
-        }
-    }
-    delete[] coveredNum_tmp;
-}
+//void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
+//    coveredNum_tmp = new int64[G.n * T];
+//    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+//    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+//    std::vector<int> cardinalities(T, 0);
+//    std::vector<bool> vis(G.n * T, false);
+//    for (int i = 0; i < T * k; ++i) {
+//        int64 covered_value = -1, u0, t0;
+//        for (int t = 0; t < T; ++t) {
+//            if (cardinalities[t] >= k) continue;
+//            for (int u = 0; u < G.n; ++u) {
+//                if (vis[t * G.n + u]) continue;
+//                if (coveredNum_tmp[t * G.n + u] > covered_value ||
+//                    (coveredNum_tmp[t * G.n + u] == covered_value && t * G.n + u > t0 * G.n + u0)) {
+//                    covered_value = coveredNum_tmp[t * G.n + u];
+//                    u0 = u;
+//                    t0 = t;
+//                }
+//            }
+//        }
+//        vis[t0 * G.n + u0] = true;
+//        seeds.emplace_back(u0, t0);
+//        cardinalities[t0] += 1;
+//        for (auto RRIndex: RRI.covered[t0 * G.n + u0]) {
+//            if (RRSetCovered[RRIndex]) continue;
+//            for (int t = 0; t < T; ++t) {
+//                for (auto u: RRI.multi_R[RRIndex][t]) {
+//                    coveredNum_tmp[t * G.n + u]--;
+//                }
+//            }
+//            RRSetCovered[RRIndex] = true;
+//        }
+//    }
+//    delete[] coveredNum_tmp;
+//}
 
 double calc_bound_MRIM(Graph &G, int64 T, int64 k, MultiRRContainer &RRI, std::vector<double> &q_R) {
     double sum = 0;
@@ -291,38 +291,38 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
 }
 
 
-double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
-    double iota = 1 + log(2) / log(G.n), eps0 = eps * sqrt(2);
-    double alpha = sqrt(iota * log(G.n) + log(2)), beta = sqrt(0.5 * T * logcnk(G.n, k) + sqr(alpha));
-    double theta = 2.0 * (2.0 + eps0 * 2.0 / 3.0) * (T * logcnk(G.n, k) + iota * log(G.n) + log(log2(G.n))) / eps0 /
-                   eps0;
-    double lambda1 = 2.0 * G.n * T * sqr((1.0 - 1.0 / exp(1)) * alpha + beta) / eps / eps;
-    double LB = 1;
-    int i_max = (int) log2(G.n - 1);
-
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    MultiRRContainer R(G, T);
-    for (int i = 1; i <= i_max; ++i) {
-        seeds.clear();
-        R.resize(G, (int64) theta);
-        Cross_Round_Node_Selection(G, R, T, k, seeds);
-//        std::cout << "theta:" << theta << " inf_call:" << 1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() << " pow:"
-//                  << (1.0 + eps0) / pow(2, i) << std::endl;
-        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
-            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
-            break;
-        }
-        theta *= 2;
-    }
-//    std::cout << "final C=" << (int64) (lambda1 / LB) << "\n";
-    R.resize(G, (int64) (lambda1 / LB));
-    seeds.clear();
-    Cross_Round_Node_Selection(G, R, T, k, seeds);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end_time - start_time;
-    return elapsed.count();
-}
+//double CR_NAIMM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
+//    double iota = 1 + log(2) / log(G.n), eps0 = eps * sqrt(2);
+//    double alpha = sqrt(iota * log(G.n) + log(2)), beta = sqrt(0.5 * T * logcnk(G.n, k) + sqr(alpha));
+//    double theta = 2.0 * (2.0 + eps0 * 2.0 / 3.0) * (T * logcnk(G.n, k) + iota * log(G.n) + log(log2(G.n))) / eps0 /
+//                   eps0;
+//    double lambda1 = 2.0 * G.n * T * sqr((1.0 - 1.0 / exp(1)) * alpha + beta) / eps / eps;
+//    double LB = 1;
+//    int i_max = (int) log2(G.n - 1);
+//
+//    auto start_time = std::chrono::high_resolution_clock::now();
+//
+//    MultiRRContainer R(G, T);
+//    for (int i = 1; i <= i_max; ++i) {
+//        seeds.clear();
+//        R.resize(G, (int64) theta);
+//        Cross_Round_Node_Selection(G, R, T, k, seeds);
+////        std::cout << "theta:" << theta << " inf_call:" << 1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() << " pow:"
+////                  << (1.0 + eps0) / pow(2, i) << std::endl;
+//        if (1.0 * R.self_inf_cal_multi(seeds) / R.numOfRRsets() >= (1.0 + eps0) / pow(2, i)) {
+//            LB = R.self_inf_cal_multi(seeds) * G.n / R.numOfRRsets() / (1.0 + eps0);
+//            break;
+//        }
+//        theta *= 2;
+//    }
+////    std::cout << "final C=" << (int64) (lambda1 / LB) << "\n";
+//    R.resize(G, (int64) (lambda1 / LB));
+//    seeds.clear();
+//    Cross_Round_Node_Selection(G, R, T, k, seeds);
+//    auto end_time = std::chrono::high_resolution_clock::now();
+//    std::chrono::duration<double> elapsed = end_time - start_time;
+//    return elapsed.count();
+//}
 
 double CR_OPIM_Partition(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;

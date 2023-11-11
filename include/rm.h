@@ -115,6 +115,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
         }
         std::vector<bool> node_selected(G.n, false);
         for (int i = 0; i < G.n; i++) {
+            //std::cout << " i="<<i<<"\n";
             while (Q.k != 0) {
                 //j: round l:node
                 int64 j = Q.ids[0].first.first;

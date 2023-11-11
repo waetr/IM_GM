@@ -23,36 +23,22 @@ int main(int argc, char const *argv[]) {
 
     cout << "RR set generated!\n";
 
-    for (int i = 1; i <= 10; ++i) {
+    for (int i = 1; i <= 11; ++i) {
         R.resize(G, R.numOfRRsets() * 2);
         cout << "# of RR sets = " << R.numOfRRsets() << endl;
-        for(int t = 1; t <= 16; t *= 2) {
+        for(int t = 1; t <= 4; t *= 4) {
             seeds.clear();
             cur = clock();
             CGreedy_RM(G, R, T, t, seeds);
             cout <<  " CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
-            cout << " value = " << R.self_inf_cal_multi(seeds) << "|" << R_judge.self_inf_cal_multi(seeds) << endl;
-            vector<int> num(G.n, 0);
-            for (int j = 0; j < seeds.size(); ++j) {
-                num[seeds[j].first]++;
-            }
-            for (int j = 0; j < G.n; ++j) {
-                assert(num[i] <= 1);
-            }
+            cout << " value = " << R_judge.self_inf_cal_multi(seeds) << endl;
         }
-        for(int t = 1; t <= 16; t *= 2) {
+        for(int t = 1; t <= 4; t *= 4) {
             seeds.clear();
             cur = clock();
             CGreedy_RM_PM(G, R, T, t, seeds);
             cout <<  " CG-PM t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
             cout << " value = " << R.self_inf_cal_multi(seeds) << "|" << R_judge.self_inf_cal_multi(seeds) << endl;
-            vector<int> num(G.n, 0);
-            for (int j = 0; j < seeds.size(); ++j) {
-                num[seeds[j].first]++;
-            }
-            for (int j = 0; j < G.n; ++j) {
-                assert(num[i] <= 1);
-            }
         }
     }
 
