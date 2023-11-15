@@ -40,7 +40,8 @@ double calc_bound_AA(Graph &G, int64 k_N, int64 k_E, VRRPath &RRI, std::vector<d
     return sum;
 }
 
-void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector<int64> &frac_N,std::vector<std::vector<int64>> &frac_E,
+void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector<int64> &frac_N,
+                 std::vector<std::vector<int64>> &frac_E,
                  std::vector<double> &q_R, VRRPath &RRI, int64 t_max, std::vector<bi_node> &seeds) {
     std::vector<bool> pos_N(G.n, false), pos1_N(G.n, false);
     std::vector<std::vector<bool>> pos_E(G.n), pos1_E(G.n);
@@ -98,8 +99,8 @@ void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
         }
 
         int xi = 0, xj = 0, yi = 0, yj = 0;
-        while(true) {
-            for(; xi < G.n; xi++) {
+        while (true) {
+            for (; xi < G.n; xi++) {
                 bool flag = false;
                 for (; xj < G.deg_in[xi]; ++xj) {
                     if (pos_E[xi][xj] && !pos1_E[xi][xj]) {
@@ -110,7 +111,7 @@ void rounding_AA(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
                 if (flag) break;
                 xj = 0;
             }
-            for(; yi < G.n; yi++) {
+            for (; yi < G.n; yi++) {
                 bool flag = false;
                 for (; yj < G.deg_in[yi]; ++yj) {
                     if (!pos_E[yi][yj] && pos1_E[yi][yj]) {
@@ -172,6 +173,7 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
     for (int i = 0; i < G.n; ++i) frac_E[i].resize(G.deg_in[i]);
     //temporary varible
     double Fx = 0;
+    double tight_bound = RRI.numOfRRsets();
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
 
     //priority queue for lazy sampling
@@ -184,6 +186,7 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
     double cur = clock();
     for (int t = 1; t <= t_max; t++) {
         Q.k = 0;
+        tight_bound = std::min(tight_bound, Fx + calc_bound_AA(G, k_N, k_E, RRI, q_R));
         for (int i = 0; i < G.n; i++) {
             if (RRI.excludedNodes[i]) continue; //is seed
             double value_v = 0;
@@ -193,9 +196,9 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
             value_v *= (double) t_max / (double) (t_max - frac_N[i]);
             Q.k++;
             heap_push<CMax<double, std::pair<std::pair<unsigned, int>, unsigned>>>(Q.k, Q.val, Q.ids,
-                                                                                        value_v, std::make_pair(
+                                                                                   value_v, std::make_pair(
                             std::make_pair(i, -1), 0));
-            for(int j = 0; j < G.deg_in[i]; j++) {
+            for (int j = 0; j < G.deg_in[i]; j++) {
                 value_v = 0;
                 for (auto rr: RRI.edge_covered[i][j]) {
                     value_v += q_R[rr];
@@ -255,15 +258,16 @@ double CGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, std
                     }
                     Q.k++;
                     heap_push<CMax<double, std::pair<std::pair<unsigned, int>, unsigned>>>(Q.k, Q.val, Q.ids,
-                                                                                                value_v, std::make_pair(
+                                                                                           value_v, std::make_pair(
                                     std::make_pair(j, l), i));
                 }
             }
+            if(i == (k_E+k_N)/2)tight_bound = std::min(tight_bound, Fx + calc_bound_AA(G, k_N, k_E, RRI, q_R));
         }
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    double tight_bound = Fx + calc_bound_AA(G, k_N, k_E, RRI, q_R);
+    tight_bound = std::min(tight_bound, Fx + calc_bound_AA(G, k_N, k_E, RRI, q_R));
 
     rounding_AA(G, bases, frac_N, frac_E, q_R, RRI, t_max, bi_seeds);
     delete[] Q.val;

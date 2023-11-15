@@ -86,7 +86,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
     //temporary varible
-    double Fx = 0;
+    double Fx = 0, tight_bound = RRI.numOfRRsets();
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
 
     //priority queue for lazy sampling
@@ -99,23 +99,28 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
 
     double cur = clock();
     for (int t = 1; t <= t_max; t++) {
+        tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
         Q.k = 0;
-        for (int i = 0; i < T; i++) {
-            for (int j = 0; j < G.n; j++) {
+        double sum = 0;
+        for (int j = 0; j < G.n; j++) {
+            double value_max = 0;
+            for (int i = 0; i < T; i++) {
                 double value_v = 0;
                 for (auto rr: RRI.covered[G.n * i + j]) {
                     value_v += q_R[rr];
                 }
                 value_v *= (double) t_max / (double) (t_max - frac_x[G.n * i + j]);
+                value_max = std::max(value_max, value_v);
                 Q.k++;
                 heap_push<CMax<double, std::pair<std::pair<unsigned, unsigned>, unsigned>>>(Q.k, Q.val, Q.ids,
                                                                                             value_v, std::make_pair(
                                 std::make_pair(i, j), 0));
             }
+            sum += value_max;
         }
+        tight_bound = std::min(tight_bound, Fx + sum);
         std::vector<bool> node_selected(G.n, false);
         for (int i = 0; i < G.n; i++) {
-            //std::cout << " i="<<i<<"\n";
             while (Q.k != 0) {
                 //j: round l:node
                 int64 j = Q.ids[0].first.first;
@@ -152,7 +157,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    double tight_bound = Fx + calc_bound_RM(G, T, RRI, q_R);
+    tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
     rounding_RM(G, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     delete[] Q.val;
@@ -183,14 +188,14 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
                 value_v *= (double) t_max / (double) (t_max - frac_x[G.n * j + i]);
                 if (value_v > value) selected_round = j, value = value_v;
             }
-            for (auto rr: RRI.covered[G.n *  selected_round + i]) {
+            for (auto rr: RRI.covered[G.n * selected_round + i]) {
                 double q_R_old = q_R[rr];
-                q_R[rr] *= (double) (t_max - frac_x[G.n *  selected_round+ i] - 1) /
-                           (double) (t_max - frac_x[G.n *  selected_round + i]);
+                q_R[rr] *= (double) (t_max - frac_x[G.n * selected_round + i] - 1) /
+                           (double) (t_max - frac_x[G.n * selected_round + i]);
                 Fx += q_R_old - q_R[rr];
             }
-            frac_x[G.n *  selected_round + i] += 1;
-            bases[t - 1].emplace_back( selected_round, i);
+            frac_x[G.n * selected_round + i] += 1;
+            bases[t - 1].emplace_back(selected_round, i);
         }
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;

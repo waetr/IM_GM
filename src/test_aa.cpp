@@ -88,30 +88,50 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < k_seed; ++i) S.emplace_back(degree_order[i].second);
 
     VRRPath R_judge(G, S);
-    R_judge.resize(G, 200000);
+    R_judge.resize(G, 100000);
 
-    VRRPath R(G, S);
-    R.resize(G, 5000);
+    VRRPath R1(G, S), R2(G, S);
+    R1.resize(G, 500);
+    R2.resize(G, 500);
 
     cout << "RR set generated!\n";
 
-//    for (int i = 1; i <= 11; ++i) {
+    double d0 = log(3.0*log(G.n*100)*G.n);
+
+    for (int i = 1; i <= 11; ++i) {
+        R1.resize(G, R1.numOfRRsets() * 2);
+        R2.resize(G, R2.numOfRRsets() * 2);
+        cout << "# of RR sets = " << R1.numOfRRsets() << endl;
+        for(int t = 1; t <= 4; t *= 4) {
+            seeds.clear();
+            cur = clock();
+            auto upperC = CGreedy_AA(G, R1, k_N, k_T, t, seeds);
+            double lowerC = 1.0 * R2.self_inf_cal(seeds);
+            double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+            double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
+            cout <<  " CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
+            cout << " spread = " << R_judge.self_inf_cal(seeds) << " upperC:" << upperC << " cov:" << R1.self_inf_cal(seeds) << " a:" << lower / upper << endl;
+        }
+    }
+
+//    for (int i = 1; i <= 1; ++i) {
 //        R.resize(G, R.numOfRRsets() * 2);
-//        cout << "# of RR sets = " << R.numOfRRsets() << endl;
+//        cout << "# of RR sets = " << R.numOfRRsets() << " real = " << R.all_R_size << endl;
 //        for (int t = 1; t <= 4; t *= 2) {
 //            seeds.clear();
 //            cur = clock();
-//            CGreedy_AA(G, R, k_N, k_T, t, seeds);
+//            auto x = CGreedy_AA(G, R, k_N, k_T, t, seeds);
 //            cout << " CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
-//            cout << " value = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
+//            cout << "debug value = " << R.self_inf_cal(seeds) << "|" << x << endl;
+//            //cout << " value = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
 //        }
 //    }
 
-    CGreedy_AA(G, R, k_N, k_T, 4, seeds);
-
-    double A1 = MC_sim(G, S, 500, emptyset) - MC_sim(G, S, 500, seeds);
-    double A2 = 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
-    cout << "\n" << A1 << " " << A2 << endl;
+//    CGreedy_AA(G, R, k_N, k_T, 4, seeds);
+//
+//    double A1 = MC_sim(G, S, 500, emptyset) - MC_sim(G, S, 500, seeds);
+//    double A2 = 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
+//    cout << "\n" << A1 << " " << A2 << endl;1
 
     return 0;
 }
