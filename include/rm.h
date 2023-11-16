@@ -170,13 +170,14 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
     //temporary varible
-    double Fx = 0;
+    double Fx = 0, tight_bound = RRI.numOfRRsets();
     std::vector<double> q_R(RRI.numOfRRsets(), 1);
 
     std::vector<std::vector<bi_node>> bases(t_max);
 
     double cur = clock();
     for (int t = 1; t <= t_max; t++) {
+        tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
         for (int i = 0; i < G.n; i++) {
             double value = -1;
             int selected_round = -1;
@@ -200,10 +201,54 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    double tight_bound = Fx + calc_bound_RM(G, T, RRI, q_R);
+    tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
     rounding_RM(G, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     return tight_bound;
+}
+
+double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
+    const double delta = 1.0 / G.n;
+    const double approx = 1.0 - 1.0 / exp(1) - eps / 2.0;
+    RMRRContainer R1(G, T), R2(G, T);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    double time1 = 0, time2 = 0, cur;
+    double C_max = 8.0 * G.n * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (G.n * log(T) + log(6.0 / delta)))) / eps / eps /
+                   G.n;
+    double C_0 = C_max * eps * eps / G.n;
+    cur = clock();
+    R1.resize(G, (size_t) C_0);
+    R2.resize(G, (size_t) C_0);
+    time1 += time_by(cur);
+    auto i_max = (int64) (log2(C_max / C_0) + 1);
+    double d0 = log(3.0 * i_max / delta);
+
+    int64 a = 2;
+    while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + eps / 2.0) a++;
+    for (int64 i = 1; i <= i_max; i++) {
+        seeds.clear();
+        cur = clock();
+        double upperC = CGreedy_RM(G, R1, T, a, seeds);
+        auto lowerC = (double) R2.self_inf_cal_multi(seeds);
+        time2 += time_by(cur);
+        double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+        double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
+        double a0 = lower / upper;
+        printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
+               lowerC);
+        if (a0 >= approx - eps / 2.0 || i == i_max) break;
+        cur = clock();
+        int64 increment = a0 < 0.01 ? 15 : 2;
+        R1.resize(G, R1.numOfRRsets() * increment);
+        R2.resize(G, R2.numOfRRsets() * increment);
+        time1 += time_by(cur);
+    }
+    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
 }
 
 

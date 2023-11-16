@@ -17,30 +17,13 @@ int main(int argc, char const *argv[]) {
 
     RMRRContainer R_judge(G, T);
     R_judge.resize(G, 1000000);
+    cout << "Judge set generated: " << R_judge.numOfRRsets() << endl;
 
-    RMRRContainer R1(G, T), R2(G, T);
-    R1.resize(G, 500);
-    R2.resize(G, 500);
-
-    cout << "RR set generated!\n";
-
-    double d0 = log(3.0*log(G.n*100)*G.n);
-
-    for (int i = 1; i <= 14; ++i) {
-        R1.resize(G, R1.numOfRRsets() * 2);
-        R2.resize(G, R2.numOfRRsets() * 2);
-        cout << "# of RR sets = " << R1.numOfRRsets() << endl;
-        for(int t = 1; t <= 4; t *= 4) {
-            seeds.clear();
-            cur = clock();
-            auto upperC = CGreedy_RM(G, R1, T, t, seeds);
-            double lowerC = 1.0 * R2.self_inf_cal_multi(seeds);
-            double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
-            double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
-            double upper1 = sqr(sqrt(1.0 * R1.self_inf_cal_multi(seeds) + d0 / 2.0) + sqrt(d0 / 2.0));
-            cout <<  " CG t = " << t << " time = " << (clock() - cur) / CLOCKS_PER_SEC;
-            cout << " spread = " << R_judge.self_inf_cal_multi(seeds) << " cov:" << R1.self_inf_cal_multi(seeds) << " a:" << lower / upper << " a1:" << lower / upper1 << endl;
-        }
+    vector<double> eps_batch = {0.5, 0.4, 0.3, 0.2, 0.1};
+    for (double eps : eps_batch) {
+        cout << "eps = " << eps << endl;
+        OPIM_RM(G, T, eps, seeds);
+        cout << "final spread = " << 1.0 * G.n * T * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
     }
 
     return 0;
