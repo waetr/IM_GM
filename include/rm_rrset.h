@@ -19,6 +19,7 @@ private:
 
 
 public:
+    std::vector<std::pair<int64, std::vector<int64>>> multi_R;
     size_t multi_R_size = 0;
 
     ///covered[u] marks which RI sets the node u is covered by
@@ -120,6 +121,7 @@ public:
             covered[idx(this_round, u)].emplace_back(multi_R_size);
             coveredNum[idx(this_round, u)]++;
         }
+        multi_R.emplace_back(this_round, RR);
         multi_R_size++;
     }
 

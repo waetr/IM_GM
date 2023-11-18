@@ -9,6 +9,36 @@
 #include "rm_rrset.h"
 
 
+void TGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, double eps, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n * T];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<bool> vis(G.n, false);
+    double w0 = 0;
+    for (int i = 0; i < G.n * T; ++i) w0 = std::max(w0, 1.0 * coveredNum_tmp[i]);
+    for (double w = w0; w > eps * w0 / G.n; w *= 1.0 - eps) {
+        for (int u = 0; u < G.n; ++u) {
+            if (vis[u]) continue;
+            for (int t = 0; t < T; ++t) {
+                if (coveredNum_tmp[t * G.n + u] >= w) {
+                    vis[u] = true;
+                    seeds.emplace_back(u, t);
+                    for (auto RRIndex: RRI.covered[t * G.n + u]) {
+                        if (RRSetCovered[RRIndex]) continue;
+                        auto t0 = RRI.multi_R[RRIndex].first;
+                        for (auto u0: RRI.multi_R[RRIndex].second) {
+                            coveredNum_tmp[t0 * G.n + u0]--;
+                        }
+                        RRSetCovered[RRIndex] = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    delete[] coveredNum_tmp;
+}
+
 double calc_bound_RM(Graph &G, int64 T, RMRRContainer &RRI, std::vector<double> &q_R) {
     double sum = 0;
     for (int i = 0; i < G.n; i++) {

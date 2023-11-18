@@ -9,41 +9,75 @@
 #include "mrim_rrset.h"
 
 
-//void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
-//    coveredNum_tmp = new int64[G.n * T];
-//    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
-//    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
-//    std::vector<int> cardinalities(T, 0);
-//    std::vector<bool> vis(G.n * T, false);
-//    for (int i = 0; i < T * k; ++i) {
-//        int64 covered_value = -1, u0, t0;
-//        for (int t = 0; t < T; ++t) {
-//            if (cardinalities[t] >= k) continue;
-//            for (int u = 0; u < G.n; ++u) {
-//                if (vis[t * G.n + u]) continue;
-//                if (coveredNum_tmp[t * G.n + u] > covered_value ||
-//                    (coveredNum_tmp[t * G.n + u] == covered_value && t * G.n + u > t0 * G.n + u0)) {
-//                    covered_value = coveredNum_tmp[t * G.n + u];
-//                    u0 = u;
-//                    t0 = t;
-//                }
-//            }
-//        }
-//        vis[t0 * G.n + u0] = true;
-//        seeds.emplace_back(u0, t0);
-//        cardinalities[t0] += 1;
-//        for (auto RRIndex: RRI.covered[t0 * G.n + u0]) {
-//            if (RRSetCovered[RRIndex]) continue;
-//            for (int t = 0; t < T; ++t) {
-//                for (auto u: RRI.multi_R[RRIndex][t]) {
-//                    coveredNum_tmp[t * G.n + u]--;
-//                }
-//            }
-//            RRSetCovered[RRIndex] = true;
-//        }
-//    }
-//    delete[] coveredNum_tmp;
-//}
+void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n * T];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<int> cardinalities(T, 0);
+    std::vector<bool> vis(G.n * T, false);
+    for (int i = 0; i < T * k; ++i) {
+        int64 covered_value = -1, u0, t0;
+        for (int t = 0; t < T; ++t) {
+            if (cardinalities[t] >= k) continue;
+            for (int u = 0; u < G.n; ++u) {
+                if (vis[t * G.n + u]) continue;
+                if (coveredNum_tmp[t * G.n + u] > covered_value ||
+                    (coveredNum_tmp[t * G.n + u] == covered_value && t * G.n + u > t0 * G.n + u0)) {
+                    covered_value = coveredNum_tmp[t * G.n + u];
+                    u0 = u;
+                    t0 = t;
+                }
+            }
+        }
+        vis[t0 * G.n + u0] = true;
+        seeds.emplace_back(u0, t0);
+        cardinalities[t0] += 1;
+        for (auto RRIndex: RRI.covered[t0 * G.n + u0]) {
+            if (RRSetCovered[RRIndex]) continue;
+            for (int t = 0; t < T; ++t) {
+                for (auto u: RRI.multi_R[RRIndex][t]) {
+                    coveredNum_tmp[t * G.n + u]--;
+                }
+            }
+            RRSetCovered[RRIndex] = true;
+        }
+    }
+    delete[] coveredNum_tmp;
+}
+
+void TGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n * T];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<int> cardinalities(T, 0);
+    std::vector<bool> vis(G.n * T, false);
+    double w0 = 0;
+    for (int i = 0; i < G.n * T; ++i) w0 = std::max(w0, 1.0 * coveredNum_tmp[i]);
+    for (double w = w0; w > eps * w0 / (T * k); w *= 1.0 - eps) {
+        for (int t = 0; t < T; ++t) {
+            if (cardinalities[t] >= k) continue;
+            for (int u = 0; u < G.n; ++u) {
+                if (vis[t * G.n + u]) continue;
+                if (coveredNum_tmp[t * G.n + u] >= w) {
+                    vis[t * G.n + u] = true;
+                    seeds.emplace_back(u, t);
+                    cardinalities[t] += 1;
+                    for (auto RRIndex: RRI.covered[t * G.n + u]) {
+                        if (RRSetCovered[RRIndex]) continue;
+                        for (int t0 = 0; t0 < T; ++t0) {
+                            for (auto u0: RRI.multi_R[RRIndex][t0]) {
+                                coveredNum_tmp[t0 * G.n + u0]--;
+                            }
+                        }
+                        RRSetCovered[RRIndex] = true;
+                    }
+                }
+                if (cardinalities[t] >= k) break;
+            }
+        }
+    }
+    delete[] coveredNum_tmp;
+}
 
 double calc_bound_MRIM(Graph &G, int64 T, int64 k, std::vector<std::vector<double>> &value_bound) {
     double sum = 0;
@@ -270,7 +304,7 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
         tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, value_bound));
         std::vector<int64> cardinality(T, 0);
         for (int i = 0; i < T * k; i++) {
-            int64 j = i % T;
+            int64 j = i / k;
             if (cardinality[j] >= k) continue;
             while (Q[j].k != 0) {
                 //j: round l:node

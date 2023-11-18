@@ -18,8 +18,9 @@ private:
 
 
 public:
-    size_t multi_R_size = 0;
 
+    size_t multi_R_size = 0;
+    std::vector<std::vector<std::vector<int64>>> multi_R;
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered;
     ///coveredNum[u] marks how many RI sets the node u is covered by
@@ -121,6 +122,7 @@ public:
                 coveredNum[idx(u, i)]++;
             }
         }
+        multi_R.emplace_back(multi_RR);
         multi_R_size++;
     }
 
