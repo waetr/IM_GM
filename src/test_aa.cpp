@@ -88,13 +88,13 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < k_seed; ++i) S.emplace_back(degree_order[i].second);
 
     VRRPath R_judge(G, S), R(G, S);
-    R_judge.resize(G, 1000000);
+    R_judge.resize(G, 200000);
     R.resize(G, 1);
-    cout << "Judge set generated: " << R_judge.numOfRRsets() << endl;
+    cout << "Judge set generated: " << R_judge.numOfRRsets() << " real size = " << R_judge.all_R_size << endl;
 
     for (int i = 0; i < 18; i++) {
         R.resize(G, R.numOfRRsets() * 2);
-        cout << "# of RR sets = " << R.numOfRRsets() << " real size = " << R_judge.all_R_size << endl;
+        cout << "# of RR sets = " << R.numOfRRsets() << " real size = " << R.all_R_size << endl;
         seeds.clear();
         CGreedy_AA(G, R, k_N, k_T, 4, seeds);
         cout << " spread_CG-MG = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
@@ -107,6 +107,9 @@ int main(int argc, char const *argv[]) {
         seeds.clear();
         CGreedy_AA_PM(G, R, k_N, k_T, 1, seeds);
         cout << " spread_Local = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
+        seeds.clear();
+        TRGreedy_AA(G, R, k_N, k_T, 0.05, seeds);
+        cout << " spread_TR = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
     }
 
     return 0;

@@ -17,6 +17,9 @@ public:
     size_t G_n;
     size_t R_size = 0, all_R_size = 0;
 
+    std::vector<std::vector<int64>> R;
+    std::vector<std::vector<int64>> R_edge;
+
     ///covered[u] marks which RI sets the node u is covered by
     std::vector<int64> *covered, **edge_covered;
     ///coveredNum[u] marks how many RI sets the node u is covered by
@@ -127,7 +130,7 @@ public:
         }
         R_size += 1;
         all_R_size += tot;
-        _sizeOfRRsets += RR.size();
+        _sizeOfRRsets += RR.size() + RR_edge.size();
         for (int64 u: RR) {
             covered[u].emplace_back(R_size - 1);
             coveredNum[u]++;
@@ -136,6 +139,8 @@ public:
             edge_covered[RR[i]][RR_edge[i]].emplace_back(R_size - 1);
             edge_coveredNum[RR[i]][RR_edge[i]]++;
         }
+        R.emplace_back(RR);
+        R_edge.emplace_back(RR_edge);
     }
 
 

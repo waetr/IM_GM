@@ -10,6 +10,71 @@
 #include "Heap.h"
 #include "aa_rrpath.h"
 
+void TRGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, double eps, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n);
+    auto **edgeCoveredNum_tmp = new int64 *[G.n]();
+    for (int i = 0; i < G.n; ++i) {
+        edgeCoveredNum_tmp[i] = new int64[G.deg_in[i]]();
+        memcpy(edgeCoveredNum_tmp[i], RRI.edge_coveredNum[i], G.deg_in[i]);
+    }
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    int64 c_N = 0, c_E = 0;
+    std::vector<bool> vis(G.n, false);
+    std::vector<std::vector<bool>> vis_edge(G.n);
+    for (int i = 0; i < G.n; ++i) {
+        vis_edge[i].resize(G.deg_in[i], false);
+    }
+    double w0 = 0;
+    for (int i = 0; i < G.n; ++i) {
+        w0 = std::max(w0, 1.0 * coveredNum_tmp[i]);
+        for (int j = 0; j < G.deg_in[i]; j++) w0 = std::max(w0, 1.0 * edgeCoveredNum_tmp[i][j]);
+    }
+    for (double w = w0; w > eps * w0 / (k_N + k_E); w *= 1.0 - eps) {
+        for (int i = 0; i < G.n; ++i) {
+            if (c_N < k_N && !vis[i] && coveredNum_tmp[i] >= w) {
+                vis[i] = true;
+                seeds.emplace_back(i, -1);
+                c_N++;
+                for (auto RRIndex: RRI.covered[i]) {
+                    if (RRSetCovered[RRIndex]) continue;
+                    for (int l = 0; l < RRI.R[RRIndex].size(); ++l) {
+                        auto u0 = RRI.R[RRIndex][l];
+                        auto e0 = RRI.R_edge[RRIndex][l];
+                        coveredNum_tmp[u0]--;
+                        edgeCoveredNum_tmp[u0][e0]--;
+                    }
+                    RRSetCovered[RRIndex] = true;
+                }
+            }
+            for (int j = 0; j < G.deg_in[i]; ++j) {
+                if (c_E < k_E && !vis_edge[i][j] && edgeCoveredNum_tmp[i][j] >= w) {
+                    vis_edge[i][j] = true;
+                    seeds.emplace_back(i, j);
+                    c_E++;
+                    for (auto RRIndex: RRI.edge_covered[i][j]) {
+                        if (RRSetCovered[RRIndex]) continue;
+                        for (int l = 0; l < RRI.R[RRIndex].size(); ++l) {
+                            auto u0 = RRI.R[RRIndex][l];
+                            auto e0 = RRI.R_edge[RRIndex][l];
+                            coveredNum_tmp[u0]--;
+                            edgeCoveredNum_tmp[u0][e0]--;
+                        }
+                        RRSetCovered[RRIndex] = true;
+                    }
+                }
+            }
+            if (c_N == k_N && c_E == k_E) break;
+        }
+        if (c_N == k_N && c_E == k_E) break;
+    }
+    delete[] coveredNum_tmp;
+    for (int i = 0; i < G.n; ++i) {
+        delete[] edgeCoveredNum_tmp[i];
+    }
+    delete[] edgeCoveredNum_tmp;
+}
+
 
 double calc_bound_AA(Graph &G, int64 k_N, int64 k_E, VRRPath &RRI, std::vector<double> &q_R) {
     double sum = 0;
@@ -311,7 +376,7 @@ double CGreedy_AA_PM(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, 
             value_v *= (double) t_max / (double) (t_max - frac_N[i]);
             Q_N.k++;
             heap_push<CMax<double, std::pair<unsigned, unsigned>>>(Q_N.k, Q_N.val, Q_N.ids,
-                                                                                   value_v, std::make_pair(i, 0));
+                                                                   value_v, std::make_pair(i, 0));
             for (int j = 0; j < G.deg_in[i]; j++) {
                 value_v = 0;
                 for (auto rr: RRI.edge_covered[i][j]) {
@@ -324,30 +389,30 @@ double CGreedy_AA_PM(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, 
                                 std::make_pair(i, j), 0));
             }
         }
-        for (int i = 0; i < k_N ; i++) {
+        for (int i = 0; i < k_N; i++) {
             while (Q_N.k != 0) {
                 //j: node l: edge-index
                 int64 j = Q_N.ids[0].first;
-                int64 it_round = Q_N.ids[0].first;
+                int64 it_round = Q_N.ids[0].second;
                 heap_pop<CMax<double, std::pair<unsigned, unsigned>>>(Q_N.k, Q_N.val, Q_N.ids);
                 Q_N.k -= 1;
                 if (it_round == i) {
                     //choose
-                        for (auto rr: RRI.covered[j]) {
-                            double q_R_old = q_R[rr];
-                            q_R[rr] *= (double) (t_max - frac_N[j] - 1) /
-                                       (double) (t_max - frac_N[j]);
-                            Fx += q_R_old - q_R[rr];
-                        }
-                        frac_N[j] += 1;
+                    for (auto rr: RRI.covered[j]) {
+                        double q_R_old = q_R[rr];
+                        q_R[rr] *= (double) (t_max - frac_N[j] - 1) /
+                                   (double) (t_max - frac_N[j]);
+                        Fx += q_R_old - q_R[rr];
+                    }
+                    frac_N[j] += 1;
                     bases[t - 1].emplace_back(j, -1);
                     break;
                 } else {
                     double value_v = 0;
-                        for (auto rr: RRI.covered[j]) {
-                            value_v += q_R[rr];
-                        }
-                        value_v *= (double) t_max / (double) (t_max - frac_N[j]);
+                    for (auto rr: RRI.covered[j]) {
+                        value_v += q_R[rr];
+                    }
+                    value_v *= (double) t_max / (double) (t_max - frac_N[j]);
                     Q_N.k++;
                     heap_push<CMax<double, std::pair<unsigned, unsigned>>>(Q_N.k, Q_N.val, Q_N.ids,
                                                                            value_v, std::make_pair(j, i));
@@ -364,21 +429,21 @@ double CGreedy_AA_PM(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, 
                 Q_E.k -= 1;
                 if (it_round == i) {
                     //choose
-                        for (auto rr: RRI.edge_covered[j][l]) {
-                            double q_R_old = q_R[rr];
-                            q_R[rr] *= (double) (t_max - frac_E[j][l] - 1) /
-                                       (double) (t_max - frac_E[j][l]);
-                            Fx += q_R_old - q_R[rr];
-                        }
-                        frac_E[j][l] += 1;
+                    for (auto rr: RRI.edge_covered[j][l]) {
+                        double q_R_old = q_R[rr];
+                        q_R[rr] *= (double) (t_max - frac_E[j][l] - 1) /
+                                   (double) (t_max - frac_E[j][l]);
+                        Fx += q_R_old - q_R[rr];
+                    }
+                    frac_E[j][l] += 1;
                     bases[t - 1].emplace_back(j, l);
                     break;
                 } else {
                     double value_v = 0;
-                        for (auto rr: RRI.edge_covered[j][l]) {
-                            value_v += q_R[rr];
-                        }
-                        value_v *= (double) t_max / (double) (t_max - frac_E[j][l]);
+                    for (auto rr: RRI.edge_covered[j][l]) {
+                        value_v += q_R[rr];
+                    }
+                    value_v *= (double) t_max / (double) (t_max - frac_E[j][l]);
                     Q_E.k++;
                     heap_push<CMax<double, std::pair<std::pair<unsigned, int>, unsigned>>>(Q_E.k, Q_E.val, Q_E.ids,
                                                                                            value_v, std::make_pair(
