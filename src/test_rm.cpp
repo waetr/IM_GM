@@ -17,6 +17,7 @@ int main(int argc, char const *argv[]) {
 
     RMRRContainer R_judge(G, T), R(G, T);
     R_judge.resize(G, 1000000);
+    R.resize(G, 1);
     cout << "Judge set generated: " << R_judge.numOfRRsets() << endl;
 
     for (int i = 0; i < 23; i++) {
