@@ -155,6 +155,11 @@ public:
         while (R_size < size) insertOneRandomRRset(G, uniformIntDistribution);
     }
 
+    void resize1(Graph &G, size_t size) {
+        std::uniform_int_distribution<int64> uniformIntDistribution(0, G.n - 1);
+        while (all_R_size < size) insertOneRandomRRset(G, uniformIntDistribution);
+    }
+
 
     // seed.first = node;  seed.second = -1 ? NULL : (index of edge)
     int64 self_inf_cal(std::vector<std::pair<int64, int64>> &vecSeed) const {
