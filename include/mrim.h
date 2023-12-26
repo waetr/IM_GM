@@ -9,6 +9,64 @@
 #include "mrim_rrset.h"
 
 
+/// Efficiently estimate the influence spread with sampling error epsilon within probability 1-delta
+double effic_inf_multi(Graph &graph, std::vector<bi_node> &S, int64 T) {
+    const double delta = 1e-3, eps = 0.01, c = 2.0 * (exp(1.0) - 2.0);
+    const double LambdaL = 20000;//1.0 + 2.0 * c * (1.0 + eps) * log(2.0 / delta) / (eps * eps);
+    size_t numHyperEdge = 0, numCoverd = 0;
+    std::vector<bool> exclusive(graph.n);
+    std::vector<std::vector<bool>> vecBoolSeed(T);
+    for (int i = 0; i < T; i++) vecBoolSeed[i].resize(graph.n, false);
+    for (auto seed: S) vecBoolSeed[seed.second][seed.first] = true;
+    std::uniform_int_distribution<int64> uniformIntDistribution(0, graph.n - 1);
+    std::vector<int64> nodes;
+    std::queue<int64> Q;
+    while (numCoverd < LambdaL) {
+        bool flag = false;
+        numHyperEdge++;
+        const auto uStart = uniformIntDistribution(mt19937engine);
+        for (int i = 0; i < T; ++i) {
+            if (vecBoolSeed[i][uStart]) {
+                flag = true;
+                break;
+            }
+        }
+        if (flag) {
+            // Stop, this sample is covered
+            numCoverd++;
+            continue;
+        }
+        for (int i = 0; i < T; ++i) {
+            exclusive[uStart] = true;
+            Q.push(uStart);
+            nodes.emplace_back(uStart);
+            while (!Q.empty()) {
+                int64 u = Q.front();
+                Q.pop();
+                for (auto &edgeT: graph.gT[u]) {
+                    if (exclusive[edgeT.v]) continue;
+                    if (random_real() < edgeT.p) {
+                        if (vecBoolSeed[i][edgeT.v]) {
+                            numCoverd++;
+                            flag = true;
+                            break;
+                        }
+                        exclusive[edgeT.v] = true;
+                        Q.push(edgeT.v);
+                        nodes.emplace_back(edgeT.v);
+                    }
+                }
+                if (flag) break;
+            }
+            for (auto e: nodes) exclusive[e] = false;
+            nodes.clear();
+            Q = std::queue<int64>(); // clear the queue
+            if (flag) break;
+        }
+    }
+    return 1.0 * numCoverd * graph.n / numHyperEdge;
+}
+
 void Cross_Round_Node_Selection(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
     coveredNum_tmp = new int64[G.n * T];
     memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
@@ -180,7 +238,7 @@ void rounding_MRIM(Graph &G, int64 T, std::vector<std::vector<bi_node>> &bases, 
     }
 }
 
-double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
+double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds, bool bound_flag = false) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -217,7 +275,7 @@ double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
                 value_bound[i][j] = value_v;
             }
         }
-        tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, value_bound));
+        if(bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, value_bound));
         std::vector<int64> cardinality(T, 0);
         for (int i = 0; i < T * k; i++) {
             while (Q.k != 0) {
@@ -254,7 +312,7 @@ double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
             }
         }
     }
-    tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, RRI, q_R));
+    if(bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, RRI, q_R));
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
     rounding_MRIM(G, T, bases, frac_x, q_R, RRI, t_max, bi_seeds);
@@ -264,7 +322,7 @@ double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
 }
 
 
-double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds) {
+double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_max, std::vector<bi_node> &bi_seeds, bool bound_flag = false) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -301,7 +359,7 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
                 value_bound[i][j] = value_v;
             }
         }
-        tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, value_bound));
+        if(bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, value_bound));
         std::vector<int64> cardinality(T, 0);
         for (int i = 0; i < T * k; i++) {
             int64 j = i / k;
@@ -339,7 +397,7 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    tight_bound = Fx + calc_bound_MRIM(G, T, k, RRI, q_R);
+    if(bound_flag) tight_bound = Fx + calc_bound_MRIM(G, T, k, RRI, q_R);
 
     rounding_MRIM(G, T, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     for (size_t i = 0; i < T; i++) {
@@ -351,17 +409,22 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
 }
 
 
-double OPIM_MRIM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &seeds) {
+double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double eps) {
     const double delta = 1.0 / G.n;
-    const double approx = 1.0 - 1.0 / exp(1) - eps / 2.0;
+    const double approx = 1.0 - 1.0 / exp(1);
+    const double approx1 = approx - eps / 2;
+    int64 opt_lower_bound = T*k;
+    int64 slope = G.n;
     MultiRRContainer R1(G, T), R2(G, T);
 
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;
-    double C_max = 8.0 * G.n * sqr(
-            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (T * logcnk(G.n, k) + log(6.0 / delta)))) / eps / eps /
-                   (T * k);
-    double C_0 = C_max * eps * eps / G.n;
+    double sum_log = T * logcnk(G.n, k);
+    double C_max = 8.0 * slope * sqr(
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps /
+                   opt_lower_bound;
+    double C_0 = 8.0 * sqr(
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -371,10 +434,13 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &s
 
     int64 a = 2;
     while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + eps / 2.0) a++;
+
     for (int64 i = 1; i <= i_max; i++) {
         seeds.clear();
         cur = clock();
-        double upperC = CGreedy_MRIM(G, R1, T, k, a, seeds);
+        double upperC = CGreedy_PM_MRIM(G, R1, T, k, a, seeds, true);
+        double upperC1 = (double) R1.self_inf_cal_multi(seeds) / approx1;
+        upperC = std::min(upperC, upperC1);
         auto lowerC = (double) R2.self_inf_cal_multi(seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -382,11 +448,11 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &s
         double a0 = lower / upper;
         printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
                lowerC);
-        if (a0 >= approx - eps / 2.0 || i == i_max) break;
+        if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
         cur = clock();
-        int64 increment = 2;//a0 < 0.01 ? 15 : 2;
-        R1.resize(G, R1.numOfRRsets() * increment);
-        R2.resize(G, R2.numOfRRsets() * increment);
+        int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
+        R1.resize(G, R1.numOfRRsets() * up_rate);
+        R2.resize(G, R2.numOfRRsets() * up_rate);
         time1 += time_by(cur);
     }
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
@@ -395,63 +461,72 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, double eps, std::vector<bi_node> &s
     return elapsed.count();
 }
 
-
-/// Efficiently estimate the influence spread with sampling error epsilon within probability 1-delta
-double effic_inf_multi(Graph &graph, std::vector<bi_node> &S, int64 T) {
-    const double delta = 1e-3, eps = 0.01, c = 2.0 * (exp(1.0) - 2.0);
-    const double LambdaL = 20000;//1.0 + 2.0 * c * (1.0 + eps) * log(2.0 / delta) / (eps * eps);
-    size_t numHyperEdge = 0, numCoverd = 0;
-    std::vector<bool> exclusive(graph.n);
-    std::vector<std::vector<bool>> vecBoolSeed(T);
-    for (int i = 0; i < T; i++) vecBoolSeed[i].resize(graph.n, false);
-    for (auto seed: S) vecBoolSeed[seed.second][seed.first] = true;
-    std::uniform_int_distribution<int64> uniformIntDistribution(0, graph.n - 1);
-    std::vector<int64> nodes;
-    std::queue<int64> Q;
-    while (numCoverd < LambdaL) {
-        bool flag = false;
-        numHyperEdge++;
-        const auto uStart = uniformIntDistribution(mt19937engine);
-        for (int i = 0; i < T; ++i) {
-            if (vecBoolSeed[i][uStart]) {
-                flag = true;
-                break;
-            }
-        }
-        if (flag) {
-            // Stop, this sample is covered
-            numCoverd++;
-            continue;
-        }
-        for (int i = 0; i < T; ++i) {
-            exclusive[uStart] = true;
-            Q.push(uStart);
-            nodes.emplace_back(uStart);
-            while (!Q.empty()) {
-                int64 u = Q.front();
-                Q.pop();
-                for (auto &edgeT: graph.gT[u]) {
-                    if (exclusive[edgeT.v]) continue;
-                    if (random_real() < edgeT.p) {
-                        if (vecBoolSeed[i][edgeT.v]) {
-                            numCoverd++;
-                            flag = true;
-                            break;
-                        }
-                        exclusive[edgeT.v] = true;
-                        Q.push(edgeT.v);
-                        nodes.emplace_back(edgeT.v);
-                    }
+double MGGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n * T];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<int> cardinalities(T, 0);
+    std::vector<bool> vis(G.n * T, false);
+    int64 influence = 0;
+    for (int tt = 0; tt < T * k; tt++) {
+        int t_, u_, value_tmp = -1;
+        for (int t = 0; t < T; ++t) {
+            if (cardinalities[t] >= k) continue;
+            for (int u = 0; u < G.n; ++u) {
+                if (vis[t * G.n + u]) continue;
+                if (coveredNum_tmp[t * G.n + u] > value_tmp) {
+                    t_ = t;
+                    u_ = u;
+                    value_tmp = coveredNum_tmp[t * G.n + u];
                 }
-                if (flag) break;
             }
-            for (auto e: nodes) exclusive[e] = false;
-            nodes.clear();
-            Q = std::queue<int64>(); // clear the queue
-            if (flag) break;
+        }
+        vis[t_ * G.n + u_] = true;
+        seeds.emplace_back(u_, t_);
+        cardinalities[t_] += 1;
+        for (auto RRIndex: RRI.covered[t_ * G.n + u_]) {
+            if (RRSetCovered[RRIndex]) continue;
+            for (int t0 = 0; t0 < T; ++t0) {
+                for (auto u0: RRI.multi_R[RRIndex][t0]) {
+                    coveredNum_tmp[t0 * G.n + u0]--;
+                }
+            }
+            RRSetCovered[RRIndex] = true;
         }
     }
-    return 1.0 * numCoverd * graph.n / numHyperEdge;
+    delete[] coveredNum_tmp;
+    return (double) influence / RRI.numOfRRsets();
+}
+
+void IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, double eps) {
+    double epsilon1 = eps * sqrt(2);
+    double iota = 1.0 + log(2) / log(G.n);
+    double LB = 1;
+    double sum_log = T * logcnk(G.n, k);
+
+    auto End = (int) (log2(G.n) + 1e-9 - 1);
+    MultiRRContainer RRI(G, T);
+    for (int i = 1; i <= End; i++) {
+        auto ci = (int64) ((2.0 + 2.0 * epsilon1 / 3) * (sum_log + iota * log(G.n) + log(log2(G.n))) / sqr(epsilon1) *
+                           pow(2.0, i));
+        std::cout<<"ci:"<<ci;
+        RRI.resize(G, ci);
+        bi_seeds.clear();
+        double ept = MGGreedy_MRIM(G, RRI, T, k, bi_seeds);
+        std::cout << " aa:" <<ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
+        if (ept > (1.0 + epsilon1) / pow(2.0, i)) {
+            LB = ept * G.n / (1.0 + epsilon1);
+            break;
+        }
+    }
+    double e = exp(1);
+    double alpha = sqrt(iota * log(G.n) + log(2));
+    double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
+    auto C = (int64) (2.0 * G.n * T * sqr(0.5 * alpha + beta) / LB / sqr(eps));
+    std::cout<<"C:"<<C;
+    RRI.resize(G, C);
+    bi_seeds.clear();
+    MGGreedy_MRIM(G, RRI, T, k, bi_seeds);
 }
 
 #endif //EXP_MRIM_H

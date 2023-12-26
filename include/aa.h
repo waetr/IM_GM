@@ -497,8 +497,8 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     double C_0 = 8.0 * sqr(
             approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
-    R1.resize(G, (size_t) C_0);
-    R2.resize(G, (size_t) C_0);
+    R1.resize1(G, (size_t) C_0);
+    R2.resize1(G, (size_t) C_0);
     time1 += time_by(cur);
     auto i_max = (int64) (log2(C_max / C_0) + 1);
     double d0 = log(3.0 * i_max / delta);
@@ -511,7 +511,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
         cur = clock();
 //        double upperC_1 = RR_OPIM_Selection(graph, A, k, bi_seeds, R1, true);
 //        bi_seeds.clear();
-        double upperC = CGreedy_AA_PM(G, R1, k_N, k_E, a, bi_seeds);
+        double upperC = CGreedy_AA_PM(G, R1, k_N, k_E, a, bi_seeds, true);
         double upperC1 = (double) R1.self_inf_cal(bi_seeds) / approx1;
         upperC = std::min(upperC, upperC1);
         auto lowerC = (double) R2.self_inf_cal(bi_seeds);
@@ -520,11 +520,11 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
         double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
         double a0 = lower / upper;
         printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
-        if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
+        if (a0 >= approx - eps || R1.all_R_size >= C_max) break;
         cur = clock();
         int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
-        R1.resize(G, R1.numOfRRsets() * up_rate);
-        R2.resize(G, R2.numOfRRsets() * up_rate);
+        R1.resize1(G, R1.all_R_size * up_rate);
+        R2.resize1(G, R2.all_R_size * up_rate);
         time1 += time_by(cur);
     }
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());

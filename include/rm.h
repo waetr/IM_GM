@@ -111,7 +111,7 @@ void rounding_RM(Graph &G, std::vector<std::vector<bi_node>> &bases, std::vector
     }
 }
 
-double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vector<bi_node> &bi_seeds) {
+double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vector<bi_node> &bi_seeds, bool bound_flag = false) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -129,7 +129,6 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
 
     double cur = clock();
     for (int t = 1; t <= t_max; t++) {
-        tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
         Q.k = 0;
         double sum = 0;
         for (int j = 0; j < G.n; j++) {
@@ -148,7 +147,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
             }
             sum += value_max;
         }
-        tight_bound = std::min(tight_bound, Fx + sum);
+        if (bound_flag) tight_bound = std::min(tight_bound, Fx + sum);
         std::vector<bool> node_selected(G.n, false);
         for (int i = 0; i < G.n; i++) {
             while (Q.k != 0) {
@@ -187,7 +186,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
+    if (bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
     rounding_RM(G, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     delete[] Q.val;
@@ -195,7 +194,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
     return tight_bound;
 }
 
-double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vector<bi_node> &bi_seeds) {
+double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vector<bi_node> &bi_seeds, bool bound_flag = false) {
 
     //the fractional solution (use integers to avoid float error)
     std::vector<int64> frac_x(G.n * T, 0);
@@ -207,7 +206,7 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
 
     double cur = clock();
     for (int t = 1; t <= t_max; t++) {
-        tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
+        if (bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
         for (int i = 0; i < G.n; i++) {
             double value = -1;
             int selected_round = -1;
@@ -231,7 +230,7 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
     }
     std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
-    tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
+    if (bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
     rounding_RM(G, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     return tight_bound;
@@ -239,15 +238,19 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
 
 double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;
-    const double approx = 1.0 - 1.0 / exp(1) - eps / 2.0;
+    const double approx = 1.0 - 1.0 / exp(1) - eps;
+    const double approx1 = approx - eps / 2;
+    int64 opt_lower_bound = G.n;
+    int64 slope = T*G.n;
     RMRRContainer R1(G, T), R2(G, T);
 
     auto start_time = std::chrono::high_resolution_clock::now();
     double time1 = 0, time2 = 0, cur;
-    double C_max = 8.0 * G.n * sqr(
-            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (G.n * log(T) + log(6.0 / delta)))) / eps / eps /
-                   G.n;
-    double C_0 = C_max * eps * eps / G.n;
+    double sum_log = G.n * log(T);
+    double C_max = 8.0 * slope * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps / opt_lower_bound;
+    double C_0 = 8.0 * sqr(
+            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -260,7 +263,9 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     for (int64 i = 1; i <= i_max; i++) {
         seeds.clear();
         cur = clock();
-        double upperC = CGreedy_RM(G, R1, T, a, seeds);
+        double upperC = CGreedy_RM_PM(G, R1, T, a, seeds, true);
+        double upperC1 = (double) R1.self_inf_cal_multi(seeds) / approx1;
+        upperC = std::min(upperC, upperC1);
         auto lowerC = (double) R2.self_inf_cal_multi(seeds);
         time2 += time_by(cur);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
@@ -268,17 +273,50 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
         double a0 = lower / upper;
         printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
                lowerC);
-        if (a0 >= approx - eps / 2.0 || i == i_max) break;
+        if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
         cur = clock();
-        int64 increment = a0 < 0.01 ? 15 : 2;
-        R1.resize(G, R1.numOfRRsets() * increment);
-        R2.resize(G, R2.numOfRRsets() * increment);
+        int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
+        R1.resize(G, R1.numOfRRsets() * up_rate);
+        R2.resize(G, R2.numOfRRsets() * up_rate);
         time1 += time_by(cur);
     }
     printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
     return elapsed.count();
+}
+
+void MGGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, std::vector<bi_node> &seeds) {
+    coveredNum_tmp = new int64[G.n * T];
+    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
+    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
+    std::vector<bool> vis(G.n, false);
+    int64 influence = 0;
+    for (int i = 0; i < G.n; ++i) {
+        int t_, u_, value_tmp = -1;
+        for (int u = 0; u < G.n; ++u) {
+            if (vis[u]) continue;
+            for (int t = 0; t < T; ++t) {
+                if (coveredNum_tmp[t * G.n + u] > value_tmp) {
+                    t_ = t;
+                    u_ = u;
+                    value_tmp = coveredNum_tmp[t * G.n + u];
+                }
+            }
+        }
+        vis[u_] = true;
+        seeds.emplace_back(u_, t_);
+        for (auto RRIndex: RRI.covered[t_ * G.n + u_]) {
+            if (RRSetCovered[RRIndex]) continue;
+            auto t0 = RRI.multi_R[RRIndex].first;
+            for (auto u0: RRI.multi_R[RRIndex].second) {
+                coveredNum_tmp[t0 * G.n + u0]--;
+            }
+            RRSetCovered[RRIndex] = true;
+        }
+        break;
+    }
+    delete[] coveredNum_tmp;
 }
 
 

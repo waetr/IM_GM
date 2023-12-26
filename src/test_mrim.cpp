@@ -53,33 +53,37 @@ int main(int argc, char const *argv[]) {
     auto k = atoi(argv[2]);
     auto T = atoi(argv[3]);
 
-    MultiRRContainer R_judge(G, T), R(G, T);
-    R_judge.resize(G, 100000);
-    cout << "Judge set generated: " << R_judge.numOfRRsets() << endl;
+//    OPIM_MRIM(G, T, k, seeds, 0.1);
 
-    R.resize(G, 1);
+    IMM_MRIM(G, T, k, seeds, 0.5);
 
-
-    for (int i = 0; i < 18; i++) {
-        R.resize(G, R.numOfRRsets() * 2);
-        cout << "# of RR sets = " << R.numOfRRsets() << endl;
-        seeds.clear();
-        CGreedy_MRIM(G, R, T, k, 4, seeds);
-        cout << " spread_CG-MG = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
-        seeds.clear();
-        CGreedy_PM_MRIM(G, R, T, k, 4, seeds);
-        cout << " spread_CG-PM = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
-        seeds.clear();
-        CGreedy_MRIM(G, R, T, k, 1, seeds);
-        cout << " spread_MG = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
-        seeds.clear();
-        CGreedy_PM_MRIM(G, R, T, k, 1, seeds);
-        cout << " spread_Local = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
-        seeds.clear();
-        TGreedy_MRIM(G, R, T, k, 0.05, seeds);
-        cout << " spread_Threshold = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
-
-    }
+//    MultiRRContainer R_judge(G, T), R(G, T);
+//    R_judge.resize(G, 100000);
+//    cout << "Judge set generated: " << R_judge.numOfRRsets() << endl;
+//
+//    R.resize(G, 1);
+//
+//
+//    for (int i = 0; i < 18; i++) {
+//        R.resize(G, R.numOfRRsets() * 2);
+//        cout << "# of RR sets = " << R.numOfRRsets() << endl;
+//        seeds.clear();
+//        CGreedy_MRIM(G, R, T, k, 4, seeds);
+//        cout << " spread_CG-MG = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
+//        seeds.clear();
+//        CGreedy_PM_MRIM(G, R, T, k, 4, seeds);
+//        cout << " spread_CG-PM = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
+//        seeds.clear();
+//        CGreedy_MRIM(G, R, T, k, 1, seeds);
+//        cout << " spread_MG = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
+//        seeds.clear();
+//        CGreedy_PM_MRIM(G, R, T, k, 1, seeds);
+//        cout << " spread_Local = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
+//        seeds.clear();
+//        TGreedy_MRIM(G, R, T, k, 0.05, seeds);
+//        cout << " spread_Threshold = " << 1.0 * G.n * R_judge.self_inf_cal_multi(seeds) / R_judge.numOfRRsets() << endl;
+//
+//    }
 
     return 0;
 }

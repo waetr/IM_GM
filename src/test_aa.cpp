@@ -87,7 +87,7 @@ int main(int argc, char const *argv[]) {
     std::sort(degree_order.begin(), degree_order.end(), std::greater<>());
     for (int i = 0; i < k_seed; ++i) S.emplace_back(degree_order[i].second);
 
-    IMM_AA(G, S, k_N, k_T, seeds, 0.5);
+    OPIM_AA(G, S, k_N, k_T, seeds, 0.1);
 
 //    VRRPath R_judge(G, S), R(G, S);
 //    R_judge.resize(G, 200000);
