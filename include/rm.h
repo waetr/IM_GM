@@ -236,11 +236,23 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
     return tight_bound;
 }
 
+double get_lower_bound(Graph &G, int64 T) {
+    const double d0 = log(12.0 * G.n);
+    RMRRContainer R(G, T);
+    R.resize(G, (size_t) 256);
+    std::vector<bi_node> bi_seeds;
+    CGreedy_RM_PM(G, R, T, 1, bi_seeds, true);
+    auto lowerC = (double) R.self_inf_cal_multi(bi_seeds);
+    double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+    std:: cout << "lower = " << lower << " : " << lowerC << " value = " << lower * (G.n * T) / R.numOfRRsets() << "\n";
+    return lower * (G.n * T) / R.numOfRRsets();
+}
+
 double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;
-    const double approx = 1.0 - 1.0 / exp(1) - eps;
+    const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    int64 opt_lower_bound = G.n;
+    double opt_lower_bound = get_lower_bound(G, T);
     int64 slope = T*G.n;
     RMRRContainer R1(G, T), R2(G, T);
 
@@ -248,9 +260,9 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     double time1 = 0, time2 = 0, cur;
     double sum_log = G.n * log(T);
     double C_max = 8.0 * slope * sqr(
-            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / eps / eps / opt_lower_bound;
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps / opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx * sqrt(log(6.0 / delta)) + sqrt(approx * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -291,7 +303,6 @@ void MGGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, std::vector<bi_node> &se
     memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
     std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
     std::vector<bool> vis(G.n, false);
-    int64 influence = 0;
     for (int i = 0; i < G.n; ++i) {
         int t_, u_, value_tmp = -1;
         for (int u = 0; u < G.n; ++u) {
@@ -314,9 +325,38 @@ void MGGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, std::vector<bi_node> &se
             }
             RRSetCovered[RRIndex] = true;
         }
-        break;
     }
     delete[] coveredNum_tmp;
+}
+
+void RM_without_oracle(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
+    const double delta = 1.0 / G.n;
+    const double approx = 0.5;
+    RMRRContainer R1(G, T), R2(G, T);
+
+    double C_max = 8.0 * G.n * sqr(
+            approx * sqrt(log(16.0 / delta)) + sqrt(approx * (T * G.n + log(16.0 / delta)))) / eps / eps ;
+    double C_0 = 1;
+    R1.resize(G, (size_t) C_0);
+    R2.resize(G, (size_t) C_0);
+    auto i_max = (int64) (log2(C_max / C_0) + 1);
+    double d0 = log((2.0+ T)  / delta / i_max);
+
+    for (int64 i = 1; i <= i_max; i++) {
+        seeds.clear();
+        MGGreedy_RM(G, R1, T, seeds);
+        double upperC = R1.self_inf_cal_multi(seeds) / approx;
+        auto lowerC = (double) R2.self_inf_cal_multi(seeds);
+        double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+        double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
+        double a0 = lower / upper;
+        printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
+               lowerC);
+        if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
+        int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
+        R1.resize(G, R1.numOfRRsets() * up_rate);
+        R2.resize(G, R2.numOfRRsets() * up_rate);
+    }
 }
 
 

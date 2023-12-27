@@ -479,12 +479,25 @@ double CGreedy_AA_PM(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, 
     return tight_bound;
 }
 
+double get_lower_bound(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E) {
+    const double d0 = log(12.0 * G.n);
+    VRRPath R(G, A);
+    R.resize1(G, (size_t) 512);
+    std::vector<bi_node> bi_seeds;
+    CGreedy_AA_PM(G, R, k_N, k_E, 1, bi_seeds);
+    auto lowerC = (double) R.self_inf_cal(bi_seeds);
+    double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+    //std:: cout << "lower = " << lower << " : " << lowerC << " value = " << lower * (G.n - A.size()) / R.all_R_size << "\n";
+    return lower * (G.n - A.size()) / R.all_R_size;
+}
+
+
 double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<bi_node> &bi_seeds, double eps) {
     assert(bi_seeds.empty());
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    int64 opt_lower_bound = k_N + k_E;
+    double opt_lower_bound = get_lower_bound(G, A, k_N, k_E);
     int64 slope = G.n - A.size();
     VRRPath R1(G, A), R2(G, A);
 
@@ -492,10 +505,10 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     double time1 = 0, time2 = 0, cur;
     double sum_log = logcnk(slope, k_N) + logcnk(G.m, k_E);
     double C_max = 8.0 * slope * sqr(
-            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps /
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps /
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize1(G, (size_t) C_0);
     R2.resize1(G, (size_t) C_0);
@@ -620,15 +633,15 @@ void IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<b
     double sum_log = logcnk(n_, k_N) + logcnk(G.m, k_E);
 
     auto End = (int) (log2(G.n) + 1e-9 - 1);
-    VRRPath RRI(G,A);
+    VRRPath RRI(G, A);
     for (int i = 1; i <= End; i++) {
         auto ci = (int64) ((2.0 + 2.0 * epsilon1 / 3) * (sum_log + iota * log(n_) + log(log2(n_))) / sqr(epsilon1) *
                            pow(2.0, i));
-        std::cout<<"ci:"<<ci;
+        std::cout << "ci:" << ci;
         RRI.resize1(G, ci);
         bi_seeds.clear();
         double ept = MGGreedy_AA(G, RRI, k_N, k_E, bi_seeds);
-        std::cout << " aa:" <<ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
+        std::cout << " aa:" << ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
         if (ept > (1.0 + epsilon1) / pow(2.0, i)) {
             LB = ept * n_ / (1.0 + epsilon1);
             break;
@@ -638,7 +651,7 @@ void IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<b
     double alpha = sqrt(iota * log(G.n) + log(2));
     double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
     auto C = (int64) (2.0 * G.n * sqr(0.5 * alpha + beta) / LB / sqr(eps));
-    std::cout<<"C:"<<C;
+    std::cout << "C:" << C;
     RRI.resize1(G, C);
     bi_seeds.clear();
     MGGreedy_AA(G, RRI, k_N, k_E, bi_seeds);

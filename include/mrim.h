@@ -408,12 +408,23 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
     return tight_bound;
 }
 
+double get_lower_bound(Graph &G, int64 T, int64 k) {
+    const double d0 = log(12.0 * G.n);
+    MultiRRContainer R(G, T);
+    R.resize(G, (size_t) 128);
+    std::vector<bi_node> bi_seeds;
+    CGreedy_PM_MRIM(G, R, T, k, 1, bi_seeds, true);
+    auto lowerC = (double) R.self_inf_cal_multi(bi_seeds);
+    double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
+    std:: cout << "lower = " << lower << " : " << lowerC << " value = " << lower * (G.n) / R.numOfRRsets() << "\n";
+    return lower * (G.n) / R.numOfRRsets();
+}
 
 double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double eps) {
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    int64 opt_lower_bound = T*k;
+    double opt_lower_bound = get_lower_bound(G,T,k);
     int64 slope = G.n;
     MultiRRContainer R1(G, T), R2(G, T);
 
@@ -421,10 +432,10 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
     double time1 = 0, time2 = 0, cur;
     double sum_log = T * logcnk(G.n, k);
     double C_max = 8.0 * slope * sqr(
-            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps /
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps /
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);

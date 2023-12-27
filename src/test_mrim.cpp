@@ -53,9 +53,8 @@ int main(int argc, char const *argv[]) {
     auto k = atoi(argv[2]);
     auto T = atoi(argv[3]);
 
-//    OPIM_MRIM(G, T, k, seeds, 0.1);
+    OPIM_MRIM(G, T, k, seeds, 0.1);
 
-    IMM_MRIM(G, T, k, seeds, 0.5);
 
 //    MultiRRContainer R_judge(G, T), R(G, T);
 //    R_judge.resize(G, 100000);
