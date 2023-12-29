@@ -10,9 +10,11 @@
 
 
 /// Efficiently estimate the influence spread with sampling error epsilon within probability 1-delta
+/// Reference: 'Optimal Price Profile for Influential Nodes in Online Social Networks', VLDBJ.
 double effic_inf_multi(Graph &graph, std::vector<bi_node> &S, int64 T) {
-    const double delta = 1e-3, eps = 0.01, c = 2.0 * (exp(1.0) - 2.0);
-    const double LambdaL = 20000;//1.0 + 2.0 * c * (1.0 + eps) * log(2.0 / delta) / (eps * eps);
+    const double delta = 1e-3, eps = 0.01;
+    const double LambdaL = (1.0 + eps) * (1.0 + (2.0 + 2.0 * eps / 3.0) * log(2.0 / delta) / (eps * eps));
+    std::cout << LambdaL << "\n";
     size_t numHyperEdge = 0, numCoverd = 0;
     std::vector<bool> exclusive(graph.n);
     std::vector<std::vector<bool>> vecBoolSeed(T);
@@ -313,7 +315,7 @@ double CGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 t_m
         }
     }
     if(bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_MRIM(G, T, k, RRI, q_R));
-    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
+    //std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
     rounding_MRIM(G, T, bases, frac_x, q_R, RRI, t_max, bi_seeds);
     delete[] Q.val;
@@ -395,7 +397,7 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
             }
         }
     }
-    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
+    //std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
     if(bound_flag) tight_bound = Fx + calc_bound_MRIM(G, T, k, RRI, q_R);
 
@@ -424,7 +426,7 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    double opt_lower_bound = get_lower_bound(G,T,k);
+    double opt_lower_bound = T * k;
     int64 slope = G.n;
     MultiRRContainer R1(G, T), R2(G, T);
 
@@ -432,10 +434,10 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
     double time1 = 0, time2 = 0, cur;
     double sum_log = T * logcnk(G.n, k);
     double C_max = 8.0 * slope * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps /
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps /
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -457,8 +459,7 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
         double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
         double a0 = lower / upper;
-        printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
-               lowerC);
+        //printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,lowerC);
         if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
         cur = clock();
         int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
@@ -509,22 +510,25 @@ double MGGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vec
     return (double) influence / RRI.numOfRRsets();
 }
 
-void IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, double eps) {
+double IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, double eps) {
     double epsilon1 = eps * sqrt(2);
     double iota = 1.0 + log(2) / log(G.n);
     double LB = 1;
     double sum_log = T * logcnk(G.n, k);
-
     auto End = (int) (log2(G.n) + 1e-9 - 1);
     MultiRRContainer RRI(G, T);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     for (int i = 1; i <= End; i++) {
         auto ci = (int64) ((2.0 + 2.0 * epsilon1 / 3) * (sum_log + iota * log(G.n) + log(log2(G.n))) / sqr(epsilon1) *
                            pow(2.0, i));
-        std::cout<<"ci:"<<ci;
+        //std::cout<<"ci:"<<ci;
         RRI.resize(G, ci);
         bi_seeds.clear();
-        double ept = MGGreedy_MRIM(G, RRI, T, k, bi_seeds);
-        std::cout << " aa:" <<ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
+        CGreedy_MRIM(G, RRI, T, k, 1, bi_seeds);
+        double ept = 1.0 * RRI.self_inf_cal_multi(bi_seeds) / RRI.numOfRRsets();
+        //std::cout << " aa:" <<ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
         if (ept > (1.0 + epsilon1) / pow(2.0, i)) {
             LB = ept * G.n / (1.0 + epsilon1);
             break;
@@ -534,10 +538,14 @@ void IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, double
     double alpha = sqrt(iota * log(G.n) + log(2));
     double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
     auto C = (int64) (2.0 * G.n * T * sqr(0.5 * alpha + beta) / LB / sqr(eps));
-    std::cout<<"C:"<<C;
+    printf("final C=%ld\n", C);
     RRI.resize(G, C);
     bi_seeds.clear();
-    MGGreedy_MRIM(G, RRI, T, k, bi_seeds);
+    CGreedy_MRIM(G, RRI, T, k, 1, bi_seeds);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
 }
 
 #endif //EXP_MRIM_H

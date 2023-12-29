@@ -497,7 +497,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    double opt_lower_bound = get_lower_bound(G, A, k_N, k_E);
+    double opt_lower_bound = k_N + k_E;
     int64 slope = G.n - A.size();
     VRRPath R1(G, A), R2(G, A);
 
@@ -505,10 +505,10 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     double time1 = 0, time2 = 0, cur;
     double sum_log = logcnk(slope, k_N) + logcnk(G.m, k_E);
     double C_max = 8.0 * slope * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps /
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps /
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize1(G, (size_t) C_0);
     R2.resize1(G, (size_t) C_0);
@@ -532,7 +532,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
         double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
         double a0 = lower / upper;
-        printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
+       // printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
         if (a0 >= approx - eps || R1.all_R_size >= C_max) break;
         cur = clock();
         int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
@@ -621,27 +621,30 @@ double MGGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, std::vector<bi_
         delete[] edgeCoveredNum_tmp[i];
     }
     delete[] edgeCoveredNum_tmp;
-    return (double) influence / RRI.all_R_size;
+    return (double) influence / RRI.numOfRRsets();
 }
 
 
-void IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<bi_node> &bi_seeds, double eps) {
+double IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<bi_node> &bi_seeds, double eps) {
     double epsilon1 = eps * sqrt(2);
     double iota = 1.0 + log(2) / log(G.n);
     double LB = 1;
     int64 n_ = G.n - A.size();
     double sum_log = logcnk(n_, k_N) + logcnk(G.m, k_E);
-
     auto End = (int) (log2(G.n) + 1e-9 - 1);
     VRRPath RRI(G, A);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     for (int i = 1; i <= End; i++) {
         auto ci = (int64) ((2.0 + 2.0 * epsilon1 / 3) * (sum_log + iota * log(n_) + log(log2(n_))) / sqr(epsilon1) *
                            pow(2.0, i));
-        std::cout << "ci:" << ci;
-        RRI.resize1(G, ci);
+        //std::cout << "ci:" << ci;
+        RRI.resize(G, ci);
         bi_seeds.clear();
-        double ept = MGGreedy_AA(G, RRI, k_N, k_E, bi_seeds);
-        std::cout << " aa:" << ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
+        CGreedy_AA(G, RRI, k_N, k_E, 1, bi_seeds);
+        double ept = RRI.self_inf_cal(bi_seeds) / RRI.numOfRRsets();
+        //std::cout << " aa:" << ept << " ee:" << (1.0 + epsilon1) / pow(2.0, i) << "\n";
         if (ept > (1.0 + epsilon1) / pow(2.0, i)) {
             LB = ept * n_ / (1.0 + epsilon1);
             break;
@@ -651,10 +654,14 @@ void IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<b
     double alpha = sqrt(iota * log(G.n) + log(2));
     double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
     auto C = (int64) (2.0 * G.n * sqr(0.5 * alpha + beta) / LB / sqr(eps));
-    std::cout << "C:" << C;
-    RRI.resize1(G, C);
+    std::cout << "C:" << C << "\n";
+    RRI.resize(G, C);
     bi_seeds.clear();
-    MGGreedy_AA(G, RRI, k_N, k_E, bi_seeds);
+    CGreedy_AA(G, RRI, k_N, k_E, 1, bi_seeds);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
 }
 
 

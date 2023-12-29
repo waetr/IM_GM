@@ -184,7 +184,7 @@ double CGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::vecto
             }
         }
     }
-    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
+    //std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
     if (bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
@@ -228,7 +228,7 @@ double CGreedy_RM_PM(Graph &G, RMRRContainer &RRI, int64 T, int64 t_max, std::ve
             bases[t - 1].emplace_back(selected_round, i);
         }
     }
-    std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
+    //std::cout << "alg time = " << (clock() - cur) / CLOCKS_PER_SEC;
 
     if (bound_flag) tight_bound = std::min(tight_bound, Fx + calc_bound_RM(G, T, RRI, q_R));
 
@@ -252,7 +252,7 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    double opt_lower_bound = get_lower_bound(G, T);
+    double opt_lower_bound = G.n;//get_lower_bound(G, T);
     int64 slope = T*G.n;
     RMRRContainer R1(G, T), R2(G, T);
 
@@ -260,9 +260,9 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     double time1 = 0, time2 = 0, cur;
     double sum_log = G.n * log(T);
     double C_max = 8.0 * slope * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / eps / eps / opt_lower_bound;
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / eps / eps / opt_lower_bound;
     double C_0 = 8.0 * sqr(
-            approx1 * sqrt(log(12.0 / delta)) + sqrt(approx1 * (sum_log + log(12.0 / delta)))) / opt_lower_bound;
+            approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -283,8 +283,7 @@ double OPIM_RM(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
         double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
         double a0 = lower / upper;
-        printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
-               lowerC);
+        //printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,lowerC);
         if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
         cur = clock();
         int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
@@ -329,10 +328,12 @@ void MGGreedy_RM(Graph &G, RMRRContainer &RRI, int64 T, std::vector<bi_node> &se
     delete[] coveredNum_tmp;
 }
 
-void RM_without_oracle(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
+double RM_without_oracle(Graph &G, int64 T, double eps, std::vector<bi_node> &seeds) {
     const double delta = 1.0 / G.n;
     const double approx = 0.5;
     RMRRContainer R1(G, T), R2(G, T);
+
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     double C_max = 8.0 * G.n * sqr(
             approx * sqrt(log(16.0 / delta)) + sqrt(approx * (T * G.n + log(16.0 / delta)))) / eps / eps ;
@@ -344,19 +345,22 @@ void RM_without_oracle(Graph &G, int64 T, double eps, std::vector<bi_node> &seed
 
     for (int64 i = 1; i <= i_max; i++) {
         seeds.clear();
-        MGGreedy_RM(G, R1, T, seeds);
+        CGreedy_RM(G, R1, T, 1, seeds);
         double upperC = R1.self_inf_cal_multi(seeds) / approx;
         auto lowerC = (double) R2.self_inf_cal_multi(seeds);
         double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
         double upper = sqr(sqrt(upperC + d0 / 2.0) + sqrt(d0 / 2.0));
         double a0 = lower / upper;
-        printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,
-               lowerC);
+        //printf(" a0:%.3f theta0:%zu upperOPT: %.3f lowerCur: %.3f\n", a0, R1.numOfRRsets(), upperC,lowerC);
         if (a0 >= approx - eps || R1.numOfRRsets() >= C_max) break;
         int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
         R1.resize(G, R1.numOfRRsets() * up_rate);
         R2.resize(G, R2.numOfRRsets() * up_rate);
     }
+    printf("final size: %zu\n", R1.numOfRRsets());
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    return elapsed.count();
 }
 
 

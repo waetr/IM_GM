@@ -74,45 +74,130 @@ int main(int argc, char const *argv[]) {
     Graph G(argv[1]);
     G.set_diffusion_model(IC); // Only support IC
     printf("read time = %.3f n=%ld m=%ld\n", time_by(cur), G.n, G.m);
-    printf("Evaluating influence in [0.99,1.01]*EPT with prob. 99.9%%.\n");
     vector<bi_node> seeds, emptyset;
     auto k_N = atoi(argv[2]);
     auto k_T = atoi(argv[3]);
-    auto k_seed = atoi(argv[4]);
+    auto partial_or_all = atoi(argv[4]);
 
-    //set S as the top-100 largest degree nodes
-    vector<int64> S;
+    std::minstd_rand fixed_engine(2024);
+
+    //set S as the top-1 largest degree nodes
+    set<int64> S_;
     vector<pair<int, int>> degree_order;
     for (int i = 0; i < G.n; ++i) degree_order.emplace_back(G.deg_out[i], i);
     std::sort(degree_order.begin(), degree_order.end(), std::greater<>());
-    for (int i = 0; i < k_seed; ++i) S.emplace_back(degree_order[i].second);
+    for (int i = 0; i < 1; ++i) S_.insert(degree_order[i].second);
 
-    OPIM_AA(G, S, k_N, k_T, seeds, 0.1);
+    for (auto u: S_) {
+        for (auto e : G.g[u]) {
+            if (distrib(fixed_engine) <= e.p) S_.insert(e.v);
+        }
+    }
+    vector<int64> A;
+    A.assign(S_.begin(), S_.end());
 
-//    VRRPath R_judge(G, S), R(G, S);
-//    R_judge.resize(G, 200000);
-//    R.resize(G, 1);
-//    cout << "Judge set generated: " << R_judge.numOfRRsets() << " real size = " << R_judge.all_R_size << endl;
-//
-//    for (int i = 0; i < 18; i++) {
-//        R.resize(G, R.numOfRRsets() * 2);
-//        cout << "# of RR sets = " << R.numOfRRsets() << " real size = " << R.all_R_size << endl;
-//        seeds.clear();
-//        CGreedy_AA(G, R, k_N, k_T, 4, seeds);
-//        cout << " spread_CG-MG = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
-//        seeds.clear();
-//        CGreedy_AA_PM(G, R, k_N, k_T, 4, seeds);
-//        cout << " spread_CG-PM = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
-//        seeds.clear();
-//        CGreedy_AA(G, R, k_N, k_T, 1, seeds);
-//        cout << " spread_MG = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
-//        seeds.clear();
-//        CGreedy_AA_PM(G, R, k_N, k_T, 1, seeds);
-//        cout << " spread_Local = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
-//        seeds.clear();
-//        TRGreedy_AA(G, R, k_N, k_T, 0.05, seeds);
-//        cout << " spread_TR = " << 1.0 * (G.n - S.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size << endl;
-//    }
+    VRRPath R_judge(G, A);
+    R_judge.resize(G, 500000);
+    printf("Judge set generated.\n");
+
+    if (partial_or_all == 0) {
+        //pre-definition
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end_time - start_time;
+        vector<double> time_[9][7], spread[9][7],rrset_time[9];
+        for (int i = 0; i < 5; ++i) {
+            double rrset_time_tmp = 0;
+            printf("%d-th round:\n", i);
+            VRRPath R(G, A);
+            R.resize(G, 2);
+            for (int j = 0; j < 9; j++) {
+                rrset_time[j].emplace_back(rrset_time_tmp);
+                printf("\t# of RR sets = %zu | time = %.3f\n", R.numOfRRsets(), average(rrset_time[j]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA(G, R, k_N, k_T, 2, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][0].emplace_back(elapsed.count()), spread[j][0].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tCG-MG-2 time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][0]), SD(time_[j][0]),average(spread[j][0]), SD(spread[j][0]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA_PM(G, R, k_N, k_T, 2, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][1].emplace_back(elapsed.count()), spread[j][1].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tCG-MGPM-2 time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][1]), SD(time_[j][1]),average(spread[j][1]), SD(spread[j][1]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA(G, R, k_N, k_T, 8, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][2].emplace_back(elapsed.count()), spread[j][2].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tCG-MG-8 time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][2]), SD(time_[j][2]),average(spread[j][2]), SD(spread[j][2]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA_PM(G, R, k_N, k_T, 8, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][3].emplace_back(elapsed.count()), spread[j][3].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tCG-MGPM-8 time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][3]), SD(time_[j][3]),average(spread[j][3]), SD(spread[j][3]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA(G, R, k_N, k_T, 1, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][4].emplace_back(elapsed.count()), spread[j][4].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tMG time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][4]), SD(time_[j][4]),average(spread[j][4]), SD(spread[j][4]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                CGreedy_AA_PM(G, R, k_N, k_T, 1, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][5].emplace_back(elapsed.count()), spread[j][5].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tMG-PM time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][5]), SD(time_[j][5]),average(spread[j][5]), SD(spread[j][5]));
+
+                seeds.clear();
+                start_time = std::chrono::high_resolution_clock::now();
+                TRGreedy_AA(G, R, k_N, k_T, 0.05, seeds);
+                end_time = std::chrono::high_resolution_clock::now();
+                elapsed = end_time - start_time;
+                time_[j][6].emplace_back(elapsed.count()), spread[j][6].emplace_back(1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size);
+                printf("\tTR time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][6]), SD(time_[j][6]),average(spread[j][6]), SD(spread[j][6]));
+                if(j<8) {
+                    start_time = std::chrono::high_resolution_clock::now();
+                    R.resize(G, R.numOfRRsets() * 4);
+                    end_time = std::chrono::high_resolution_clock::now();
+                    elapsed = end_time - start_time;
+                    rrset_time_tmp += elapsed.count();
+                }
+            }
+        }
+    } else {
+        vector<double> eps_batch = {0.5, 0.4, 0.3, 0.2, 0.1};
+        vector<double> time_[5][2], spread[5][2];
+        for (int i = 0; i < 5; ++i) {
+            printf("%d-th round:\n", i);
+            for (int j = 0; j < eps_batch.size(); ++j) {
+                auto eps = eps_batch[j];
+                printf("\teps=%.1f\n", eps);
+                seeds.clear();
+                auto x = OPIM_AA(G, A, k_N, k_T, seeds, eps), y = 1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
+                time_[j][0].push_back(x), spread[j][0].push_back(y);
+                printf("\tOURS time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][0]), SD(time_[j][0]),average(spread[j][0]), SD(spread[j][0]));
+                seeds.clear();
+                x = IMM_AA(G, A, k_N, k_T, seeds, eps), y = 1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
+                time_[j][1].push_back(x), spread[j][1].push_back(y);
+                printf("\tIMM time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][1]), SD(time_[j][1]),average(spread[j][1]), SD(spread[j][1]));
+            }
+        }
+    }
 
     return 0;
 }
