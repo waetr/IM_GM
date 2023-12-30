@@ -93,11 +93,12 @@ int main(int argc, char const *argv[]) {
             if (distrib(fixed_engine) <= e.p) S_.insert(e.v);
         }
     }
+    printf("size(A) = %zu\n", S_.size());
     vector<int64> A;
     A.assign(S_.begin(), S_.end());
 
     VRRPath R_judge(G, A);
-    R_judge.resize(G, 500000);
+    R_judge.resize(G, 100000);
     printf("Judge set generated.\n");
 
     if (partial_or_all == 0) {

@@ -16,7 +16,7 @@ int main(int argc, char const *argv[]) {
     auto partial_or_all = atoi(argv[3]);
 
     RMRRContainer R_judge(G, T);
-    R_judge.resize(G, 500000);
+    R_judge.resize(G, 1000000);
     printf("Judge set generated.\n");
 
     if (partial_or_all == 0) {
@@ -29,7 +29,7 @@ int main(int argc, char const *argv[]) {
             double rrset_time_tmp = 0;
             printf("%d-th round:\n", i);
             RMRRContainer R(G, T);
-            R.resize(G, 2);
+            R.resize(G, 32);
             for (int j = 0; j < 9; j++) {
                 rrset_time[j].emplace_back(rrset_time_tmp);
                 printf("\t# of RR sets = %zu | time = %.3f\n", R.numOfRRsets(), average(rrset_time[j]));
