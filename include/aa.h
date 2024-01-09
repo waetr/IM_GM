@@ -497,7 +497,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     const double delta = 1.0 / G.n;
     const double approx = 1.0 - 1.0 / exp(1);
     const double approx1 = approx - eps / 2;
-    double opt_lower_bound = k_N + k_E;
+    double opt_lower_bound = 10;
     int64 slope = G.n - A.size();
     VRRPath R1(G, A), R2(G, A);
 
@@ -516,8 +516,8 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
     auto i_max = (int64) (log2(C_max / C_0) + 1);
     double d0 = log(3.0 * i_max / delta);
 
-    int64 a = 2;
-    while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + eps / 2.0) a++;
+    int64 a = 1;
+    //while (1.0 / pow(1.0 + 1.0 / a, a) > 1.0 / exp(1) + eps / 2.0) a++;
 
     for (int64 i = 1; i <= i_max; i++) {
         bi_seeds.clear();
@@ -535,7 +535,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
        // printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
         if (a0 >= approx - eps || R1.all_R_size >= C_max) break;
         cur = clock();
-        int up_rate = a0 < 0.01 ? 32 : ((a0 < (approx - eps) / 2) ? 8 : 2);
+        int up_rate = a0 < 0.01 ? 8 : ((a0 < (approx - eps) / 2) ? 8 : 2);
         R1.resize1(G, R1.all_R_size * up_rate);
         R2.resize1(G, R2.all_R_size * up_rate);
         time1 += time_by(cur);

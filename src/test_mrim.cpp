@@ -129,7 +129,7 @@ int main(int argc, char const *argv[]) {
                 printf("\tTR time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][6]), SD(time_[j][6]),average(spread[j][6]), SD(spread[j][6]));
                 if(j<8) {
                     start_time = std::chrono::high_resolution_clock::now();
-                    R.resize(G, R.numOfRRsets() * 4);
+                    R.resize(G, R.numOfRRsets() * 2);
                     end_time = std::chrono::high_resolution_clock::now();
                     elapsed = end_time - start_time;
                     rrset_time_tmp += elapsed.count();

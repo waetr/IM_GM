@@ -341,7 +341,7 @@ double RM_without_oracle(Graph &G, int64 T, double eps, std::vector<bi_node> &se
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
     auto i_max = (int64) (log2(C_max / C_0) + 1);
-    double d0 = log((2.0+ T)  / delta / i_max);
+    double d0 = log((2.0+ T)  / delta * i_max * 4);
 
     for (int64 i = 1; i <= i_max; i++) {
         seeds.clear();

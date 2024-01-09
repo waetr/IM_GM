@@ -16,8 +16,23 @@ int main(int argc, char const *argv[]) {
     auto partial_or_all = atoi(argv[3]);
 
     RMRRContainer R_judge(G, T);
-    R_judge.resize(G, 1000000);
-    printf("Judge set generated.\n");
+    R_judge.resize(G, 100000);
+
+    vector<pair<int64, int64>> vecSeed;
+    ifstream firstFile("seeds.txt");
+    // Read from the first file
+    string line;
+    while (getline(firstFile, line)) {
+        stringstream ss(line);
+        int x, y;
+        ss >> x >> y;
+        vecSeed.emplace_back(y, x);
+    }
+    firstFile.close();
+
+    cout << R_judge.self_inf_cal_multi(vecSeed) << endl;
+    return 0;
+
 
     if (partial_or_all == 0) {
         //pre-definition
