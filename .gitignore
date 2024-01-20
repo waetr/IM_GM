@@ -1,5 +1,3 @@
-exp
 cmake-build-debug
-extern_libs/Capacity_Constrained_IM
 .idea
-dataset/*
+dataset
