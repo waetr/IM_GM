@@ -1,5 +1,3 @@
-#include "IMs.h"
-#include "OPIM_new.h"
 #include "mrim.h"
 
 
@@ -65,7 +63,7 @@ int main(int argc, char const *argv[]) {
         vector<double> time_[9][7], spread[9][7],rrset_time[9];
         for (int i = 0; i < 5; ++i) {
             double rrset_time_tmp = 0;
-            printf("%d-th round:\n", i);
+            printf("%d-th experiment round:\n", i);
             MultiRRContainer R(G, T);
             R.resize(G, 2);
             for (int j = 0; j < 9; j++) {
@@ -129,7 +127,7 @@ int main(int argc, char const *argv[]) {
                 printf("\tTR time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][6]), SD(time_[j][6]),average(spread[j][6]), SD(spread[j][6]));
                 if(j<8) {
                     start_time = std::chrono::high_resolution_clock::now();
-                    R.resize(G, R.numOfRRsets() * 2);
+                    R.resize(G, R.numOfRRsets() * 4);
                     end_time = std::chrono::high_resolution_clock::now();
                     elapsed = end_time - start_time;
                     rrset_time_tmp += elapsed.count();

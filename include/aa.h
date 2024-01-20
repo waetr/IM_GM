@@ -5,10 +5,10 @@
 #ifndef EXP_AA_H
 #define EXP_AA_H
 
-#include "IMs.h"
-#include "OPIM_new.h"
 #include "Heap.h"
 #include "aa_rrpath.h"
+
+static int64 *coveredNum_tmp;
 
 void TRGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, double eps, std::vector<bi_node> &seeds) {
     coveredNum_tmp = new int64[G.n];
@@ -479,18 +479,6 @@ double CGreedy_AA_PM(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, int64 t_max, 
     return tight_bound;
 }
 
-double get_lower_bound(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E) {
-    const double d0 = log(12.0 * G.n);
-    VRRPath R(G, A);
-    R.resize1(G, (size_t) 512);
-    std::vector<bi_node> bi_seeds;
-    CGreedy_AA_PM(G, R, k_N, k_E, 1, bi_seeds);
-    auto lowerC = (double) R.self_inf_cal(bi_seeds);
-    double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
-    //std:: cout << "lower = " << lower << " : " << lowerC << " value = " << lower * (G.n - A.size()) / R.all_R_size << "\n";
-    return lower * (G.n - A.size()) / R.all_R_size;
-}
-
 
 double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector<bi_node> &bi_seeds, double eps) {
     assert(bi_seeds.empty());
@@ -509,6 +497,7 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
             approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+    // value of C_0 is heuristically scaled to avoid excessive iterations
     cur = clock();
     R1.resize1(G, (size_t) C_0);
     R2.resize1(G, (size_t) C_0);
@@ -535,93 +524,15 @@ double OPIM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vecto
        // printf("a0:%.3f theta0:%zu lowerC: %.3f upperC: %.3f\n", a0, R1.R.size(), lowerC, upperC);
         if (a0 >= approx - eps || R1.all_R_size >= C_max) break;
         cur = clock();
-        int up_rate = a0 < 0.01 ? 8 : ((a0 < (approx - eps) / 2) ? 8 : 2);
+        int up_rate = (a0 < 0.01 || (a0 < (approx - eps) / 2)) ? 8 : 2;
         R1.resize1(G, R1.all_R_size * up_rate);
         R2.resize1(G, R2.all_R_size * up_rate);
         time1 += time_by(cur);
     }
-    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
+//    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
     return elapsed.count();
-}
-
-double MGGreedy_AA(Graph &G, VRRPath &RRI, int64 k_N, int64 k_E, std::vector<bi_node> &seeds) {
-    coveredNum_tmp = new int64[G.n];
-    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * sizeof(int64));
-    auto **edgeCoveredNum_tmp = new int64 *[G.n]();
-    for (int i = 0; i < G.n; ++i) {
-        edgeCoveredNum_tmp[i] = new int64[G.deg_in[i]]();
-        memcpy(edgeCoveredNum_tmp[i], RRI.edge_coveredNum[i], G.deg_in[i] * sizeof(int64));
-    }
-    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
-    int64 c_N = 0, c_E = 0;
-    std::vector<bool> vis(G.n, false);
-    std::vector<std::vector<bool>> vis_edge(G.n);
-    for (int i = 0; i < G.n; ++i) {
-        vis_edge[i].resize(G.deg_in[i], false);
-    }
-    int64 influence = 0;
-    for (int t = 0; t < k_N + k_E; t++) {
-        int i0 = 0, j0 = -1, value_tmp = -1;
-        if (c_N < k_N) {
-            for (int i = 0; i < G.n; ++i) {
-                if (!vis[i] && coveredNum_tmp[i] > value_tmp) {
-                    i0 = i;
-                    j0 = -1;
-                    value_tmp = coveredNum_tmp[i];
-                }
-            }
-        }
-        if (c_E < k_E) {
-            for (int i = 0; i < G.n; ++i) {
-                for (int j = 0; j < G.deg_in[i]; ++j) {
-                    if (c_E < k_E && !vis_edge[i][j] && edgeCoveredNum_tmp[i][j] > value_tmp) {
-                        i0 = i;
-                        j0 = j;
-                        value_tmp = edgeCoveredNum_tmp[i][j];
-                    }
-                }
-            }
-        }
-        assert(c_E + c_N < k_E + k_N);
-        influence += value_tmp;
-        if (j0 == -1) {
-            vis[i0] = true;
-            seeds.emplace_back(i0, -1);
-            c_N++;
-            for (auto RRIndex: RRI.covered[i0]) {
-                if (RRSetCovered[RRIndex]) continue;
-                for (int l = 0; l < RRI.R[RRIndex].size(); ++l) {
-                    auto u0 = RRI.R[RRIndex][l];
-                    auto e0 = RRI.R_edge[RRIndex][l];
-                    coveredNum_tmp[u0]--;
-                    edgeCoveredNum_tmp[u0][e0]--;
-                }
-                RRSetCovered[RRIndex] = true;
-            }
-        } else {
-            vis_edge[i0][j0] = true;
-            seeds.emplace_back(i0, j0);
-            c_E++;
-            for (auto RRIndex: RRI.edge_covered[i0][j0]) {
-                if (RRSetCovered[RRIndex]) continue;
-                for (int l = 0; l < RRI.R[RRIndex].size(); ++l) {
-                    auto u0 = RRI.R[RRIndex][l];
-                    auto e0 = RRI.R_edge[RRIndex][l];
-                    coveredNum_tmp[u0]--;
-                    edgeCoveredNum_tmp[u0][e0]--;
-                }
-                RRSetCovered[RRIndex] = true;
-            }
-        }
-    }
-    delete[] coveredNum_tmp;
-    for (int i = 0; i < G.n; ++i) {
-        delete[] edgeCoveredNum_tmp[i];
-    }
-    delete[] edgeCoveredNum_tmp;
-    return (double) influence / RRI.numOfRRsets();
 }
 
 
@@ -654,7 +565,7 @@ double IMM_AA(Graph &G, std::vector<int64> &A, int64 k_N, int64 k_E, std::vector
     double alpha = sqrt(iota * log(G.n) + log(2));
     double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
     auto C = (int64) (2.0 * G.n * sqr(0.5 * alpha + beta) / LB / sqr(eps));
-    std::cout << "C:" << C << "\n";
+    //std::cout << "C:" << C << "\n";
     RRI.resize(G, C);
     bi_seeds.clear();
     CGreedy_AA(G, RRI, k_N, k_E, 1, bi_seeds);

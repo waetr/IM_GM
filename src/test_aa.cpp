@@ -1,7 +1,4 @@
-#include "IMs.h"
-#include "OPIM_new.h"
 #include "aa.h"
-#include <map>
 
 using namespace std;
 
@@ -109,7 +106,7 @@ int main(int argc, char const *argv[]) {
         vector<double> time_[9][7], spread[9][7],rrset_time[9];
         for (int i = 0; i < 5; ++i) {
             double rrset_time_tmp = 0;
-            printf("%d-th round:\n", i);
+            printf("%d-th experiment round:\n", i);
             VRRPath R(G, A);
             R.resize(G, 2);
             for (int j = 0; j < 9; j++) {
@@ -192,10 +189,10 @@ int main(int argc, char const *argv[]) {
                 auto x = OPIM_AA(G, A, k_N, k_T, seeds, eps), y = 1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
                 time_[j][0].push_back(x), spread[j][0].push_back(y);
                 printf("\tOURS time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][0]), SD(time_[j][0]),average(spread[j][0]), SD(spread[j][0]));
-//                seeds.clear();
-//                x = IMM_AA(G, A, k_N, k_T, seeds, eps), y = 1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
-//                time_[j][1].push_back(x), spread[j][1].push_back(y);
-//                printf("\tIMM time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][1]), SD(time_[j][1]),average(spread[j][1]), SD(spread[j][1]));
+                seeds.clear();
+                x = IMM_AA(G, A, k_N, k_T, seeds, eps), y = 1.0 * (G.n - A.size()) * R_judge.self_inf_cal(seeds) / R_judge.all_R_size;
+                time_[j][1].push_back(x), spread[j][1].push_back(y);
+                printf("\tIMM time = %.3f(%.3f) spread = %.3f(%.3f)\n", average(time_[j][1]), SD(time_[j][1]),average(spread[j][1]), SD(spread[j][1]));
             }
         }
     }

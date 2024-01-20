@@ -1,5 +1,3 @@
-#include "IMs.h"
-#include "OPIM_new.h"
 #include "rm.h"
 
 
@@ -18,22 +16,6 @@ int main(int argc, char const *argv[]) {
     RMRRContainer R_judge(G, T);
     R_judge.resize(G, 100000);
 
-    vector<pair<int64, int64>> vecSeed;
-    ifstream firstFile("seeds.txt");
-    // Read from the first file
-    string line;
-    while (getline(firstFile, line)) {
-        stringstream ss(line);
-        int x, y;
-        ss >> x >> y;
-        vecSeed.emplace_back(y, x);
-    }
-    firstFile.close();
-
-    cout << R_judge.self_inf_cal_multi(vecSeed) << endl;
-    return 0;
-
-
     if (partial_or_all == 0) {
         //pre-definition
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -42,7 +24,7 @@ int main(int argc, char const *argv[]) {
         vector<double> time_[9][7], spread[9][7], rrset_time[9];
         for (int i = 0; i < 5; ++i) {
             double rrset_time_tmp = 0;
-            printf("%d-th round:\n", i);
+            printf("%d-th experiment round:\n", i);
             RMRRContainer R(G, T);
             R.resize(G, 32);
             for (int j = 0; j < 9; j++) {

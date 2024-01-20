@@ -6,7 +6,6 @@
 #include "preliminaries.h"
 #include "graphs.h"
 
-
 class VRRPath {
 
 public:

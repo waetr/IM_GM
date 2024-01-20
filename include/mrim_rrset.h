@@ -4,7 +4,7 @@
 #include <random>
 
 #include "preliminaries.h"
-
+#include "graphs.h"
 
 class MultiRRContainer {
 private:

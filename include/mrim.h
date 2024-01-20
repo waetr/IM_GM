@@ -3,10 +3,10 @@
 
 #include <random>
 
-#include "IMs.h"
-#include "OPIM_new.h"
 #include "Heap.h"
 #include "mrim_rrset.h"
+
+static int64 *coveredNum_tmp;
 
 
 /// Efficiently estimate the influence spread with sampling error epsilon within probability 1-delta
@@ -410,17 +410,6 @@ double CGreedy_PM_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, int64 
     return tight_bound;
 }
 
-double get_lower_bound(Graph &G, int64 T, int64 k) {
-    const double d0 = log(12.0 * G.n);
-    MultiRRContainer R(G, T);
-    R.resize(G, (size_t) 128);
-    std::vector<bi_node> bi_seeds;
-    CGreedy_PM_MRIM(G, R, T, k, 1, bi_seeds, true);
-    auto lowerC = (double) R.self_inf_cal_multi(bi_seeds);
-    double lower = sqr(sqrt(lowerC + 2.0 * d0 / 9.0) - sqrt(d0 / 2.0)) - d0 / 18.0;
-    std:: cout << "lower = " << lower << " : " << lowerC << " value = " << lower * (G.n) / R.numOfRRsets() << "\n";
-    return lower * (G.n) / R.numOfRRsets();
-}
 
 double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double eps) {
     const double delta = 1.0 / G.n;
@@ -438,6 +427,7 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
                    opt_lower_bound;
     double C_0 = 8.0 * sqr(
             approx1 * sqrt(log(6.0 / delta)) + sqrt(approx1 * (sum_log + log(6.0 / delta)))) / opt_lower_bound;
+    // value of C_0 is heuristically scaled to avoid excessive iterations
     cur = clock();
     R1.resize(G, (size_t) C_0);
     R2.resize(G, (size_t) C_0);
@@ -467,48 +457,12 @@ double OPIM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &seeds, double
         R2.resize(G, R2.numOfRRsets() * up_rate);
         time1 += time_by(cur);
     }
-    printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
+    //printf("time1: %.3f time2: %.3f size: %zu\n", time1, time2, R1.numOfRRsets());
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
     return elapsed.count();
 }
 
-double MGGreedy_MRIM(Graph &G, MultiRRContainer &RRI, int64 T, int64 k, std::vector<bi_node> &seeds) {
-    coveredNum_tmp = new int64[G.n * T];
-    memcpy(coveredNum_tmp, RRI.coveredNum, G.n * T * sizeof(int64));
-    std::vector<bool> RRSetCovered(RRI.numOfRRsets(), false);
-    std::vector<int> cardinalities(T, 0);
-    std::vector<bool> vis(G.n * T, false);
-    int64 influence = 0;
-    for (int tt = 0; tt < T * k; tt++) {
-        int t_, u_, value_tmp = -1;
-        for (int t = 0; t < T; ++t) {
-            if (cardinalities[t] >= k) continue;
-            for (int u = 0; u < G.n; ++u) {
-                if (vis[t * G.n + u]) continue;
-                if (coveredNum_tmp[t * G.n + u] > value_tmp) {
-                    t_ = t;
-                    u_ = u;
-                    value_tmp = coveredNum_tmp[t * G.n + u];
-                }
-            }
-        }
-        vis[t_ * G.n + u_] = true;
-        seeds.emplace_back(u_, t_);
-        cardinalities[t_] += 1;
-        for (auto RRIndex: RRI.covered[t_ * G.n + u_]) {
-            if (RRSetCovered[RRIndex]) continue;
-            for (int t0 = 0; t0 < T; ++t0) {
-                for (auto u0: RRI.multi_R[RRIndex][t0]) {
-                    coveredNum_tmp[t0 * G.n + u0]--;
-                }
-            }
-            RRSetCovered[RRIndex] = true;
-        }
-    }
-    delete[] coveredNum_tmp;
-    return (double) influence / RRI.numOfRRsets();
-}
 
 double IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, double eps) {
     double epsilon1 = eps * sqrt(2);
@@ -538,7 +492,7 @@ double IMM_MRIM(Graph &G, int64 T, int64 k, std::vector<bi_node> &bi_seeds, doub
     double alpha = sqrt(iota * log(G.n) + log(2));
     double beta = sqrt(0.5 * (sum_log + iota * log(G.n) + log(2)));
     auto C = (int64) (2.0 * G.n * T * sqr(0.5 * alpha + beta) / LB / sqr(eps));
-    printf("final C=%ld\n", C);
+    //printf("final C=%ld\n", C);
     RRI.resize(G, C);
     bi_seeds.clear();
     CGreedy_MRIM(G, RRI, T, k, 1, bi_seeds);
