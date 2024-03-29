@@ -37,3 +37,21 @@ E.g., assume that the graph file is ``data/facebook.txt``:
 **Run in MRIM with k=2000 (case T=1 in MRIM)**: ``./test_mrim data/facebook.txt 2000 1 [0/1]``
 
 **Note**: In RM, parameters $\alpha_i$ and $k_i$ are fixed to 1.
+
+## Dataset Sources
+
+The datasets used in our paper can be downloaded via the following links. You might need to do extra cleaning for the raw data to align with our input format (see ``data/facebook.txt``).
+
+Facebook: http://snap.stanford.edu/data/ego-Facebook.html
+
+Wiki: http://snap.stanford.edu/data/wiki-Vote.html
+
+Twitter: http://snap.stanford.edu/data/ego-Twitter.html
+
+Google+: http://snap.stanford.edu/data/ego-Gplus.html
+
+Pokec: http://snap.stanford.edu/data/soc-Pokec.html
+
+LiceJournal: http://snap.stanford.edu/data/soc-LiveJournal1.html
+
+We encourage you to try other datasets that can be used in IM tasks to test the performance.
