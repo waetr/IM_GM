@@ -23,7 +23,7 @@ Command Format: ``./test_[mrim/rm/aa] [graph_file] [args] [0/1]``
 ``[args]``: The arguments in the IM-GM instance.
 
 ``[0/1]``: 
-- 0 = Run AMP and competitors (Greedy, Local-Greedy, Threshold-Greedy) by varying #RR sets from $2^1$ to $2^17$ (or from $2^5$ to $2^22$ in RM); 
+- 0 = Run AMP and competitors (Greedy, Local-Greedy, Threshold-Greedy) by varying #RR sets from $2^1$ to $2^{17}$ (or from $2^5$ to $2^{22}$ in RM); 
 - 1 = Run RAMP and competitors (RMA / CR-NAIMM / AAIMM) by varying $\epsilon$ from 0.5 to 0.1.
 
 E.g., assume that the graph file is ``data/facebook.txt``:
