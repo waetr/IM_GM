@@ -1,10 +1,10 @@
 # AMP & RAMP
 
-This project implements the AMP and RAMP algorithms for the paper:
-- Anonymous Author(s), "Efficient and Effective Algorithms for A Family of Influence
-  Maximization Problems with A Matroid Constraint".
+This project implements the experiments in this paper:
+- Yiqian Huang, Shiqi Zhang, Laks VS Lakshmanan, Wenqing Lin, Xiaokui Xiao, and Bo Tang. 2024. Efficient and Effective Algorithms for A Family of Influence
+  Maximization Problems with A Matroid Constraint.
   
-###This project can be run with one click. Please refer to the following details.
+**This project can be run with one click. Please refer to the following details.**
 
 ## How to compile
 
@@ -40,7 +40,7 @@ E.g., assume that the graph file is ``data/facebook.txt``:
 
 ## Dataset Sources
 
-The datasets used in our paper can be downloaded via the following links. You might need to do extra cleaning for the raw data to align with our input format (see ``data/facebook.txt``).
+The datasets used in our paper can be downloaded via the following links. You might need to operate on the raw data to align with our input format (see ``data/facebook.txt``).
 
 Facebook: http://snap.stanford.edu/data/ego-Facebook.html
 
@@ -54,4 +54,4 @@ Pokec: http://snap.stanford.edu/data/soc-Pokec.html
 
 LiceJournal: http://snap.stanford.edu/data/soc-LiveJournal1.html
 
-We encourage you to try other datasets that can be used in IM tasks to test the performance.
+We always encourage interested readers to try other datasets for testing.
