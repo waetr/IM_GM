@@ -52,6 +52,4 @@ Google+: http://snap.stanford.edu/data/ego-Gplus.html
 
 Pokec: http://snap.stanford.edu/data/soc-Pokec.html
 
-LiceJournal: http://snap.stanford.edu/data/soc-LiveJournal1.html
-
-We always encourage interested readers to try other datasets for testing.
+LiveJournal: http://snap.stanford.edu/data/soc-LiveJournal1.html
